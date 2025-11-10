@@ -33,7 +33,6 @@ const Dashboard = (): JSX.Element => {
       const params = getAPIParams();
       setError(null);
 
-      // Overview
       setLoadingOverview(true);
       try {
         const overview = await apiClient.getOverview(params);
@@ -45,7 +44,6 @@ const Dashboard = (): JSX.Element => {
         setLoadingOverview(false);
       }
 
-      // Timeseries
       setLoadingTimeseries(true);
       try {
         const timeseries = await apiClient.getTimeseries(params);
@@ -56,7 +54,6 @@ const Dashboard = (): JSX.Element => {
         setLoadingTimeseries(false);
       }
 
-      // Ranking
       setLoadingRanking(true);
       try {
         const ranking = await apiClient.getRankingUFs(params);
@@ -67,7 +64,6 @@ const Dashboard = (): JSX.Element => {
         setLoadingRanking(false);
       }
 
-      // Forecast
       setForecastInsufficient(false);
       if (!filtersSelected) {
         setForecastData([]);

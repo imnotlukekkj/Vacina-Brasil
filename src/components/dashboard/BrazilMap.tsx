@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { motion } from "framer-motion";
+import React, { useState } from "react";
 import { scaleLinear } from "d3-scale";
 
 interface BrazilMapProps {
@@ -10,12 +11,26 @@ interface BrazilMapProps {
     doses_distribuidas: number;
   }>;
   loading: boolean;
+  selectedUF?: string | null;
 }
 
 // GeoJSON simplificado do Brasil (você pode usar um TopoJSON mais detalhado)
 const geoUrl = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson";
 
-const BrazilMap = ({ data, loading }: BrazilMapProps) => {
+const BrazilMap = ({ data, loading, selectedUF = null }: BrazilMapProps) => {
+  const [hover, setHover] = useState<{ name: string; x: number; y: number; visible: boolean }>({
+    name: "",
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+  // reflect externally selected UF first (from filters). Local clicks still override.
+  const [selected, setSelected] = useState<string | null>(selectedUF || null);
+
+  // keep selected in sync if parent filter changes
+  React.useEffect(() => {
+    setSelected(selectedUF || null);
+  }, [selectedUF]);
   if (loading) {
     return (
       <Card>
@@ -45,6 +60,11 @@ const BrazilMap = ({ data, loading }: BrazilMapProps) => {
     const stateData = data.find(d => 
       d.sigla === stateName || d.uf.toLowerCase() === stateName.toLowerCase()
     );
+    // If an external filter selected a UF, only highlight that state; others should be muted
+    if (selectedUF) {
+      const matches = stateData && (stateData.sigla === selectedUF || stateData.uf.toLowerCase() === String(selectedUF).toLowerCase());
+      return matches ? colorScale(stateData!.doses_distribuidas) : "hsl(var(--muted))";
+    }
     return stateData ? colorScale(stateData.doses_distribuidas) : "hsl(var(--muted))";
   };
 
@@ -65,7 +85,7 @@ const BrazilMap = ({ data, loading }: BrazilMapProps) => {
               <p className="text-muted-foreground">Nenhum dado disponível para o mapa</p>
             </div>
           ) : (
-            <div className="w-full h-96">
+            <div className="w-full h-96 relative">
               <ComposableMap
                 projection="geoMercator"
                 projectionConfig={{
@@ -77,16 +97,26 @@ const BrazilMap = ({ data, loading }: BrazilMapProps) => {
                   {({ geographies }) =>
                     geographies.map((geo) => {
                       const stateName = geo.properties.sigla || geo.properties.name;
+                      const isSelected = selected === stateName;
                       return (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
                           fill={getColorForState(stateName)}
-                          stroke="hsl(var(--border))"
-                          strokeWidth={0.5}
+                          stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--border))"}
+                          strokeWidth={isSelected ? 1.5 : 0.5}
+                          onMouseEnter={(evt) => {
+                            const name = stateName;
+                            setHover({ name, x: evt.clientX + 12, y: evt.clientY + 12, visible: true });
+                          }}
+                          onMouseMove={(evt) => {
+                            setHover(h => (h.visible ? { ...h, x: evt.clientX + 12, y: evt.clientY + 12 } : h));
+                          }}
+                          onMouseLeave={() => setHover(h => ({ ...h, visible: false }))}
+                          onClick={() => setSelected(stateName)}
                           style={{
                             default: { outline: "none" },
-                            hover: { 
+                            hover: {
                               fill: "hsl(var(--secondary))",
                               outline: "none",
                               cursor: "pointer",
@@ -99,6 +129,21 @@ const BrazilMap = ({ data, loading }: BrazilMapProps) => {
                   }
                 </Geographies>
               </ComposableMap>
+
+              {hover.visible && (
+                <div
+                  className="pointer-events-none fixed z-50 rounded-md px-2 py-1 bg-white/90 text-sm shadow"
+                  style={{ left: hover.x, top: hover.y }}
+                >
+                  {hover.name}
+                </div>
+              )}
+
+              {selected && (
+                <div className="absolute left-2 top-2 z-40 rounded-md bg-white/90 px-3 py-1 text-sm shadow">
+                  {selected}
+                </div>
+              )}
             </div>
           )}
           <div className="mt-4 flex items-center justify-center gap-4 text-sm">

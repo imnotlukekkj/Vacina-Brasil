@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { useFilterStore } from "@/stores/filterStore";
+import { apiClient } from "@/lib/api";
 
 const ANOS = ["2020", "2021", "2022", "2023", "2024"];
 const MESES = [
@@ -27,29 +28,13 @@ const UFS = [
   "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", 
   "SP", "SE", "TO"
 ];
-const VACINAS = [
-  "Poliomielite",
-  "BCG",
-  "Rotavírus",
-  "Pneumocócica Conjugada 13 Valente",
-  "Hepatite B",
-  "Covid-19",
-  "Soro Anti-Rábico Humano",
-  "Febre Amarela",
-  "Pneumocócica",
-  "Tetra Viral",
-  "Varicela",
-  "Dupla Adulto",
-  "Tríplice Viral",
-  "Imunoglobulina Humana Anti-Hepatite B",
-  "Soro Anticrotálico",
-  "HPV",
-  "Pentavalente"
-];
+// VACINAS agora carregadas dinamicamente do backend via API
 
 const FilterSection = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { ano, mes, uf, vacina, setAno, setMes, setUF, setVacina, clearFilters } = useFilterStore();
+  const [vacinasList, setVacinasList] = useState<string[]>([]);
+  const [loadingVacinas, setLoadingVacinas] = useState(false);
 
   // Sincroniza URL com store
   useEffect(() => {
@@ -62,6 +47,26 @@ const FilterSection = () => {
     if (mesParam) setMes(mesParam);
     if (ufParam) setUF(ufParam);
     if (vacinaParam) setVacina(vacinaParam);
+  }, []);
+
+  // buscar lista de vacinas do backend
+  useEffect(() => {
+    let mounted = true;
+    setLoadingVacinas(true);
+    apiClient
+      .getVacinas()
+      .then((list) => {
+        if (!mounted) return;
+        setVacinasList(list);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar vacinas:", err);
+      })
+      .finally(() => setLoadingVacinas(false));
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Atualiza URL quando filtros mudam
@@ -138,9 +143,13 @@ const FilterSection = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {VACINAS.map((i) => (
-                  <SelectItem key={i} value={i}>{i}</SelectItem>
-                ))}
+                {loadingVacinas ? (
+                  <SelectItem value="all">Carregando...</SelectItem>
+                ) : (
+                  vacinasList.map((i) => (
+                    <SelectItem key={i} value={i}>{i}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

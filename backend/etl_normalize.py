@@ -21,6 +21,26 @@ def load_mappings(path: Path):
 
 
 def normalize_record(rec, mappings):
+    # normalizar a sigla (ex: 'SES-PR' -> 'PR') e expor em 'tx_sigla_norm'
+    def _normalize_tx_sigla(r):
+        txs = r.get("TX_SIGLA") or r.get("tx_sigla") or ""
+        if not txs:
+            r["tx_sigla_norm"] = None
+            return r
+        txs = txs.strip().upper()
+        # remover prefixos comuns como 'SES-' ou 'SES '
+        txs = re.sub(r"^SES[\-\s./]*", "", txs)
+        # pegar último par de letras (código UF) se existir
+        m = re.search(r"([A-Z]{2})$", txs)
+        if m:
+            r["tx_sigla_norm"] = m.group(1)
+        else:
+            # fallback: usar os dois primeiros caracteres
+            r["tx_sigla_norm"] = txs[:2] if len(txs) >= 2 else txs
+        return r
+
+    _normalize_tx_sigla(rec)
+
     tx = rec.get("TX_INSUMO") or rec.get("tx_insumo") or ""
     if not tx:
         rec["tx_insumo_norm"] = None
