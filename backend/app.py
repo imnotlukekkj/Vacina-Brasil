@@ -11,9 +11,9 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     asyncpg = None
 import httpx
-from backend.normalizer import get_default_normalizer
-from backend.routers.previsao_router import router as previsao_router
-from backend.env_utils import ensure_loaded_backend_env
+from .normalizer import get_default_normalizer
+from .routers.previsao_router import router as previsao_router
+from .env_utils import ensure_loaded_backend_env
 
 # load backend/.env if present (prefer the file inside the backend folder)
 # force override so the reloader/worker processes pick up values from the file

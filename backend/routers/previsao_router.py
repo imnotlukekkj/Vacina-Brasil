@@ -4,9 +4,9 @@ from fastapi import HTTPException
 from typing import Optional, Any, Dict, List
 import os
 import re
-from backend.utils.env_utils import ensure_loaded_backend_env
-from backend.normalizer import get_default_normalizer
-from backend.repositories.supabase_repo import (
+from ..utils.env_utils import ensure_loaded_backend_env
+from ..normalizer import get_default_normalizer
+from ..repositories.supabase_repo import (
     get_supabase_client,
     http_rpc_call,
     normalize_row,
@@ -15,7 +15,7 @@ from backend.repositories.supabase_repo import (
     rpc_obter_soma_por_ano_value,
     rpc_obter_projecao_ano,
 )
-from backend.schemas.previsao_schemas import ComparisonResponse
+from ..schemas.previsao_schemas import ComparisonResponse
 
 router = APIRouter()
 

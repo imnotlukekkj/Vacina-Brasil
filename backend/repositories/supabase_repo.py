@@ -2,7 +2,7 @@ from typing import Any, Optional, Dict, Tuple
 import os
 import re
 import httpx
-from backend.utils.env_utils import ensure_loaded_backend_env
+from ..utils.env_utils import ensure_loaded_backend_env
 
 try:
     from supabase import create_client
