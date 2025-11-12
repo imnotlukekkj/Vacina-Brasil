@@ -54,6 +54,22 @@ pip install -r backend/requirements.txt
 python -m uvicorn backend.app:app --reload --port 8000
 ```
 
+Recomendação de runtime
+-----------------------
+
+Para evitar incompatibilidades com bibliotecas (por exemplo `httpx`/`httpcore`) e garantir comportamento consistente entre ambientes, recomendamos usar Python 3.11 para o backend. Você pode criar um virtualenv específico nomeado `.venv311` como no exemplo abaixo:
+
+```powershell
+py -3.11 -m venv backend\.venv311
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\backend\.venv311\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+python -m uvicorn backend.app:app --reload --port 8000
+```
+
+No deploy (Render/Heroku/Outros), assegure que o runtime esteja configurado para Python 3.11 (veja `runtime.txt` na raiz do repositório).
+
 Bash / macOS / Linux:
 
 ```bash

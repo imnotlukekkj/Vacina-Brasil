@@ -121,6 +121,23 @@ npm start
 
 O aplicativo estará disponível em `http://localhost:8080`
 
+## Python runtime (backend)
+
+O backend é um projeto Python (FastAPI) e deve ser executado com uma versão estável do Python 3.11.
+Recomendamos criar um virtualenv com Python 3.11 (por exemplo `backend/.venv311`) e executar o servidor como módulo para garantir que os imports relativos funcionem corretamente:
+
+```powershell
+# criar venv com Python 3.11 (Windows PowerShell)
+py -3.11 -m venv backend\.venv311
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\backend\.venv311\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+python -m uvicorn backend.app:app --reload --port 8000
+```
+
+Para deploy em plataformas como Render, adicione (ou garanta) que o runtime esteja definido como Python 3.11 (veja `runtime.txt` no repositório). Isso evita incompatibilidades com bibliotecas como `httpx`/`httpcore` em versões mais novas do Python.
+
 ## 📁 Estrutura do Projeto
 
 ```
