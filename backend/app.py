@@ -39,9 +39,20 @@ db_pool: Optional[Any] = None
 # configure CORS for dev (origins from CORS_ORIGINS env var)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in CORS_ORIGINS if o.strip()],
+    # build origins: honor CORS_ORIGINS env var but always include localhost:8000
+    # and the FRONTEND_URL environment (use a sensible default if not set)
+    allow_origins=(lambda: (
+        (lambda base, add: (lambda x: x)(base + [a for a in add if a not in base]))(
+            [o.strip() for o in CORS_ORIGINS if o.strip()],
+            [
+                "http://localhost:8000",
+                os.getenv("FRONTEND_URL", "https://vacina-data-visor.vercel.app"),
+            ],
+        )
+    ))(),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # Restrict to GET as requested
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
