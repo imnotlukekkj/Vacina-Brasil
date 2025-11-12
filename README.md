@@ -1,13 +1,3 @@
-# Welcome to your Lovable project
-
-## Project info
-
-**URL**: https://lovable.dev/projects/84027fd2-5b7f-4527-90f2-3bee09608788
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-````markdown
 # 🩺 Vacina Brasil - Dashboard Nacional de Distribuição de Vacinas
 
 Dashboard interativo e responsivo para visualização e análise de dados oficiais de distribuição e aplicação de vacinas em todo o território nacional.
