@@ -1,10 +1,7 @@
-fastapi>=0.95.0
-uvicorn[standard]>=0.22.0
-
-# Optional (used only if you later connect to Supabase or use env files)
-python-dotenv>=1.0.0
-# asyncpg is optional and may fail to build on some Windows/Python versions.
-# If you need Postgres support, install it in a compatible environment (e.g. Python 3.11)
-# asyncpg>=0.27.0
-httpx>=0.24.0
-psycopg2-binary>=2.9.6
+fastapi==0.121.1
+uvicorn[standard]==0.22.0
+python-dotenv==1.0.0
+httpx==0.24.1
+pydantic==2.12.4
+supabase==2.1.0
+psycopg[binary]==3.2.12

@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 from dotenv import load_dotenv
 import os
 
@@ -15,7 +15,8 @@ DBNAME = os.getenv("dbname")
 def main():
     # Connect to the database
     try:
-        connection = psycopg2.connect(
+        # psycopg (v3) uses a very similar connect signature
+        connection = psycopg.connect(
             user=USER,
             password=PASSWORD,
             host=HOST,
