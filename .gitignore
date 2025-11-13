@@ -30,3 +30,20 @@ dist-ssr
 .venv
 venv
 backend/.venv
+
+# Runtime artifacts and editor/OS noise
+__pycache__/
+*.pyc
+.backend_pid
+.frontend_pid
+.env.local
+.env.*.local
+.pytest_cache/
+coverage/
+coverage.*
+.cache/
+/.idea/
+
+# Don't accidentally add virtualenvs created with different names
+.venv*/
+backend/.venv*/
