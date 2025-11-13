@@ -18,12 +18,13 @@ pip install -r backend/requirements.txt
 
 echo "[run_dev] iniciando backend (uvicorn) em background..."
 python -m uvicorn backend.app:app --reload --port 8000 &
+python -m uvicorn backend.app:app --reload --reload-dir backend --port 8000 &
 BACKEND_PID=$!
 echo "[run_dev] backend PID=$BACKEND_PID"
 
 echo "[run_dev] escrevendo .env.local para o frontend..."
 cat > .env.local <<EOF
-VITE_BASE_API_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000
 EOF
 
 echo "[run_dev] iniciando frontend (npm run dev)..."
