@@ -30,7 +30,7 @@ class APIClient {
   }
 
   async getOverview(params?: FilterParams): Promise<OverviewData> {
-    const url = this.buildURL("/overview", params);
+  const url = this.buildURL("/api/overview", params);
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
@@ -63,7 +63,7 @@ class APIClient {
   }
 
   async getTimeseries(params?: FilterParams): Promise<TimeseriesDataPoint[]> {
-    const url = this.buildURL("/timeseries", params);
+  const url = this.buildURL("/api/timeseries", params);
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
@@ -89,7 +89,7 @@ class APIClient {
   }
 
   async getRankingUFs(params?: FilterParams): Promise<RankingUF[]> {
-    const url = this.buildURL("/ranking/ufs", params);
+  const url = this.buildURL("/api/ranking/ufs", params);
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
@@ -114,7 +114,7 @@ class APIClient {
   }
 
   async getForecast(params?: FilterParams): Promise<ForecastDataPoint[]> {
-    const url = this.buildURL("/forecast", params);
+  const url = this.buildURL("/api/forecast", params);
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Erro ao buscar previsão: ${response.statusText}`);
@@ -160,7 +160,7 @@ class APIClient {
   }
 
   async getVacinas(): Promise<string[]> {
-    const url = new URL("/mappings", this.baseURL).toString();
+  const url = new URL("/api/mappings", this.baseURL).toString();
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Erro ao buscar vacinas: ${response.statusText}`);
