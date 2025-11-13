@@ -36,16 +36,12 @@ app.include_router(previsao_router, prefix="/api")
 from typing import Any
 db_pool: Optional[Any] = None
 
-# configure CORS for dev (origins from CORS_ORIGINS env var)
+# Seu dominio publico do Vercel (deve ser definido como variavel de ambiente no Render)
 FRONTEND_ORIGIN = os.getenv("FRONTEND_URL", "https://vacina-data-visor.vercel.app") 
 
 # Lista de origens permitidas
 origins = [
-    # Aceita qualquer subdomínio do Vercel para deploys temporários
-    "https://*.vercel.app", 
-    # Domínio de produção (Vercel)
-    os.getenv("FRONTEND_URL", "https://vacina-data-visor.vercel.app"),
-    "https://vacina-data-visor-9t9x-luisfelipes-projects-3aeb88d.vercel.app",
+    # Domínios de desenvolvimento (URLs literais apenas)
     "http://localhost:8080",
     "http://127.0.0.1:8000",
     "http://localhost:3000",
@@ -54,6 +50,8 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    # Regex para aceitar qualquer subdomínio do vercel.app (deploys temporários)
+    allow_origin_regex=r"https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
