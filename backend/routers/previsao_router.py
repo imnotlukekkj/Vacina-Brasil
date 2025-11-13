@@ -602,6 +602,68 @@ async def previsao_comparacao(
         ],
     }
 
+    # Anomaly detection: if the projection value is wildly different from the
+    # historical total, prefer a more stable fallback (median of annual totals).
+    # This helps when the DB RPC returns inconsistent aggregates for specific
+    # insumo filters (observed for some normalized names). Thresholds chosen
+    # conservatively: if annualized projection is >2.5x or <0.4x historical sum
+    # we recompute a median-based fallback and use it instead of the raw RPC
+    # projection. When `debug` is true we keep rpc_raw fields so callers can
+    # inspect original RPC payloads.
+    try:
+        if soma_value is not None and proj_value is not None:
+            soma_f = float(soma_value)
+            proj_f = float(proj_value)
+            # determine annualized projection depending on inferred unit
+            annualized_proj = proj_f
+            if proj_unit == "mensal":
+                annualized_proj = proj_f * 12.0
+
+            if soma_f > 0:
+                ratio = annualized_proj / soma_f
+                if ratio > 2.5 or ratio < 0.4:
+                    try:
+                        # Prefer a recent-years average as a conservative fallback (e.g. mean of 2022-2024)
+                        recent_years = [2022, 2023, 2024]
+                        recent_vals = []
+                        recent_raw = []
+                        for y in recent_years:
+                            try:
+                                sv, sraw = await rpc_obter_soma_por_ano_value(client, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {**params_plain_soma, "ano": y}, {**params_underscored_soma, "_ano": y})
+                            except Exception:
+                                sv, sraw = None, None
+                            recent_raw.append({"ano": y, "raw": sraw})
+                            if sv is not None:
+                                try:
+                                    recent_vals.append(float(sv))
+                                except Exception:
+                                    continue
+
+                        if recent_vals:
+                            avg_recent = sum(recent_vals) / len(recent_vals)
+                            proj_value = avg_recent
+                            proj_unit = "anual"
+                            resp_payload["dados_comparacao"][1]["quantidade"] = proj_value
+                            resp_payload["projecao_unidade"] = proj_unit
+                            if debug:
+                                resp_payload.setdefault("rpc_raw_fallback", recent_raw)
+                        else:
+                            # fallback to median if recent average not available
+                            med_val, med_raw = await rpc_median_projection_totals(client, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, params_plain_soma, params_underscored_soma)
+                            if med_val is not None:
+                                proj_value = med_val
+                                proj_unit = "anual"
+                                resp_payload["dados_comparacao"][1]["quantidade"] = proj_value
+                                resp_payload["projecao_unidade"] = proj_unit
+                                if debug:
+                                    resp_payload.setdefault("rpc_raw_fallback", med_raw)
+                    except Exception:
+                        # non-fatal: keep original proj_value
+                        pass
+    except Exception:
+        # keep original behavior on unexpected errors
+        pass
+
     if debug:
         resp_payload_debug = dict(resp_payload)
         resp_payload_debug["rpc_raw_soma"] = soma_rpc_raw
