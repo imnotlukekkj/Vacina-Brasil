@@ -89,8 +89,15 @@ const Dashboard = (): JSX.Element => {
   // if user selected a vacina, call the new comparison endpoint and render a simple bar chart
   if (vacina) {
           try {
-            // endpoint requires ano=2024 per backend validation
-            const resp: any = await apiClient.getComparacao({ insumo_nome: vacina, ano: 2024, uf: uf || undefined, mes: mes || undefined });
+            // ensure vacina is a non-empty trimmed string before calling
+            const vacinaTrim = String(vacina || "").trim();
+            if (!vacinaTrim) {
+              // nothing meaningful selected, skip comparison call
+              setForecastData([]);
+              setForecastInsufficient(true);
+            } else {
+              // endpoint requires ano=2024 per backend validation
+              const resp: any = await apiClient.getComparacao({ insumo_nome: vacinaTrim, ano: 2024, uf: uf || undefined, mes: mes || undefined });
 
             // resp.dados_comparacao is expected to be an array like [{ ano: 2024, quantidade: number|null, tipo: 'historico' }, { ano: 2025, quantidade: number|null, tipo: 'projeção' }]
             if (resp && Array.isArray(resp.dados_comparacao)) {
@@ -112,6 +119,7 @@ const Dashboard = (): JSX.Element => {
               // fallback: no usable comparison data
               setForecastData([]);
               setForecastInsufficient(true);
+            }
             }
           } catch (err: any) {
             // bubble up specific statuses if needed

@@ -77,7 +77,9 @@ class APIClient {
 
   async getComparacao(params: { insumo_nome?: string; ano?: number | string; uf?: string; mes?: number | string }) {
     const url = new URL("/api/previsao/comparacao", this.baseURL);
-    if (params.insumo_nome) url.searchParams.append("insumo_nome", params.insumo_nome);
+    if (params.insumo_nome !== undefined && params.insumo_nome !== null && String(params.insumo_nome).trim() !== "") {
+      url.searchParams.append("insumo_nome", String(params.insumo_nome).trim());
+    }
     if (params.ano !== undefined && params.ano !== null) url.searchParams.append("ano", String(params.ano));
     if (params.uf) url.searchParams.append("uf", String(params.uf));
     if (params.mes !== undefined && params.mes !== null) url.searchParams.append("mes", String(params.mes));
