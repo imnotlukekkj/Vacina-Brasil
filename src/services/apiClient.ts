@@ -92,9 +92,25 @@ class APIClient {
     const url = this.buildURL("/ranking/ufs", params);
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Erro ao buscar ranking: ${response.statusText}`);
+      const txt = await response.text();
+      const err: any = new Error(`Erro ao buscar ranking: ${response.status} ${txt}`);
+      err.status = response.status;
+      err.body = txt;
+      throw err;
     }
-    return response.json();
+    const payload = await response.json();
+    // Backend returns an array of { uf, sigla, doses_distribuidas }
+    if (Array.isArray(payload)) {
+      return payload.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+    }
+    // wrapper shapes
+    if (payload && Array.isArray(payload.data)) {
+      return payload.data.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+    }
+    if (payload && Array.isArray(payload.result)) {
+      return payload.result.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+    }
+    return [];
   }
 
   async getForecast(params?: FilterParams): Promise<ForecastDataPoint[]> {
