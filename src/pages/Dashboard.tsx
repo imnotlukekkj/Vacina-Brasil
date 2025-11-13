@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Activity, AlertCircle, Info } from "lucide-react";
 import { useFilterStore } from "@/stores/filterStore";
@@ -19,6 +19,11 @@ const Dashboard = (): JSX.Element => {
   const { ano, mes, uf, vacina, getAPIParams } = useFilterStore();
   const filtersSelected = Boolean(ano || mes || uf || vacina);
 
+  // request counter to avoid race conditions when multiple rapid filter changes
+  // incrementing this value cancels previous in-flight fetches (we check it
+  // after each await and bail out early if it's changed).
+  const requestCounter = useRef<number>(0);
+
   const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
   const [timeseriesData, setTimeseriesData] = useState<TimeseriesDataPoint[]>([]);
   const [rankingData, setRankingData] = useState<RankingUF[]>([]);
@@ -34,6 +39,7 @@ const Dashboard = (): JSX.Element => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const thisRequest = ++requestCounter.current;
       const params = getAPIParams();
       setError(null);
 
@@ -42,8 +48,24 @@ const Dashboard = (): JSX.Element => {
       let overview: OverviewData | null = null;
       try {
         overview = await apiClient.getOverview(params);
+        // if a newer request started, stop processing this one
+        if (requestCounter.current !== thisRequest) return;
         setOverviewData(overview);
       } catch (err) {
+        // Log HTTP error details (status/body) so we can see exact failure that
+        // causes the user-facing banner. apiClient now attaches `status` and `body` when
+        // the response is not ok.
+        try {
+          // eslint-disable-next-line no-console
+          console.log("Overview fetch failed:", {
+            status: (err as any)?.status,
+            body: (err as any)?.body,
+            message: (err as any)?.message,
+            raw: err,
+          });
+        } catch (e) {
+          // ignore logging errors
+        }
         setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
@@ -54,8 +76,24 @@ const Dashboard = (): JSX.Element => {
       setLoadingTimeseries(true);
       try {
         const timeseries = await apiClient.getTimeseries(params);
+        if (requestCounter.current !== thisRequest) return;
         setTimeseriesData(timeseries);
       } catch (err) {
+        // Log HTTP error details (status/body) so we can see exact failure that
+        // causes the user-facing banner. apiClient now attaches `status` and `body` when
+        // the response is not ok.
+        try {
+          // eslint-disable-next-line no-console
+          console.log("Timeseries fetch failed:", {
+            status: (err as any)?.status,
+            body: (err as any)?.body,
+            message: (err as any)?.message,
+            raw: err,
+          });
+        } catch (e) {
+          // ignore logging errors
+        }
+        setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
         setLoadingTimeseries(false);
@@ -65,8 +103,21 @@ const Dashboard = (): JSX.Element => {
       setLoadingRanking(true);
       try {
         const ranking = await apiClient.getRankingUFs(params);
+        if (requestCounter.current !== thisRequest) return;
         setRankingData(ranking);
       } catch (err) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log("Ranking fetch failed:", {
+            status: (err as any)?.status,
+            body: (err as any)?.body,
+            message: (err as any)?.message,
+            raw: err,
+          });
+        } catch (e) {
+          // ignore logging errors
+        }
+        setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
         setLoadingRanking(false);
@@ -80,11 +131,12 @@ const Dashboard = (): JSX.Element => {
         return;
       }
 
-      setLoadingForecast(true);
-      try {
-  const forecast = await apiClient.getForecast(params);
-  // keep existing forecast series from the legacy /forecast endpoint
-  let merged = forecast || [];
+  setLoadingForecast(true);
+  try {
+    const forecast = await apiClient.getForecast(params);
+    if (requestCounter.current !== thisRequest) return;
+    // keep existing forecast series from the legacy /forecast endpoint
+    let merged = forecast || [];
 
   // if user selected a vacina, call the new comparison endpoint and render a simple bar chart
   if (vacina) {
@@ -112,16 +164,30 @@ const Dashboard = (): JSX.Element => {
               } else {
                 // pass the comparison payload (may include projecao_unidade) to the chart component
                 // store the full response so the chart can annualize when appropriate
+                if (requestCounter.current !== thisRequest) return;
                 setForecastData(resp as any);
                 setForecastInsufficient(false);
               }
             } else {
               // fallback: no usable comparison data
+              if (requestCounter.current !== thisRequest) return;
               setForecastData([]);
               setForecastInsufficient(true);
             }
             }
           } catch (err: any) {
+            // Log HTTP error details for the comparison call
+            try {
+              // eslint-disable-next-line no-console
+              console.log("Comparacao (vacina) fetch failed:", {
+                status: (err as any)?.status,
+                body: (err as any)?.body,
+                message: (err as any)?.message,
+                raw: err,
+              });
+            } catch (e) {
+              // ignore logging errors
+            }
             // bubble up specific statuses if needed
             if (err && err.status === 400) {
               // validation error from backend (e.g. ano must be 2024) – surface to user
@@ -142,37 +208,71 @@ const Dashboard = (): JSX.Element => {
               // server computes totals/projecoes across all vacinas.
               const resp: any = await apiClient.getComparacao({ ano: Number(ano), uf: uf || undefined, mes: mes || undefined });
 
+                if (requestCounter.current !== thisRequest) return;
+
               if (resp && Array.isArray(resp.dados_comparacao)) {
                 const q2024 = resp.dados_comparacao.find((d: any) => Number(d.ano) === Number(ano))?.quantidade ?? null;
                 const q2025 = resp.dados_comparacao.find((d: any) => Number(d.ano) === 2025)?.quantidade ?? null;
                 if ((q2024 === null || q2024 === 0) && (q2025 === null || q2025 === 0)) {
+                  if (requestCounter.current !== thisRequest) return;
                   setForecastData([]);
                   setForecastInsufficient(true);
                 } else {
+                  if (requestCounter.current !== thisRequest) return;
                   setForecastData(resp);
                   setForecastInsufficient(false);
                 }
               } else {
+                if (requestCounter.current !== thisRequest) return;
                 setForecastData([]);
                 setForecastInsufficient(true);
               }
             } catch (err) {
-              console.error(err);
+              try {
+                // eslint-disable-next-line no-console
+                console.log("Comparacao (totais) fetch failed:", {
+                  status: (err as any)?.status,
+                  body: (err as any)?.body,
+                  message: (err as any)?.message,
+                  raw: err,
+                });
+              } catch (e) {
+                // ignore logging errors
+              }
+              if (requestCounter.current !== thisRequest) return;
               setForecastData([]);
               setForecastInsufficient(true);
             }
           } else {
+            if (requestCounter.current !== thisRequest) return;
             setForecastData(merged);
           }
         }
       } catch (err) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log("Forecast fetch failed:", {
+            status: (err as any)?.status,
+            body: (err as any)?.body,
+            message: (err as any)?.message,
+            raw: err,
+          });
+        } catch (e) {
+          // ignore logging errors
+        }
+        setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
-        setLoadingForecast(false);
+        if (requestCounter.current === thisRequest) setLoadingForecast(false);
       }
     };
 
     fetchData();
+    // cancel/ignore previous in-flight fetches when any dependency changes
+    return () => {
+      // incrementing the counter will make older requests bail out on their next check
+      requestCounter.current++;
+    };
   }, [ano, mes, uf, vacina]);
 
   return (
