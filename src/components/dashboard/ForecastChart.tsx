@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import React, { useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ComposedChart, ReferenceLine } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ComposedChart, ReferenceLine, BarChart, Bar } from "recharts";
 import { motion } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 
@@ -94,6 +94,28 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
 
     return { yDomain: [domainMin, domainMax], hasSinglePoint: single };
   }, [chartData]);
+
+  // detect simple comparison pair: one historical point and one projection for the same month
+  const isComparisonPair = useMemo(() => {
+    if (!chartData || chartData.length !== 2) return false;
+    const a: any = chartData[0];
+    const b: any = chartData[1];
+    const hasHist = (a.doses_historico !== undefined && a.doses_historico !== null) || (b.doses_historico !== undefined && b.doses_historico !== null);
+    const hasProj = (a.doses_projecao !== undefined && a.doses_projecao !== null) || (b.doses_projecao !== undefined && b.doses_projecao !== null);
+    if (!hasHist || !hasProj) return false;
+    // ensure both points refer to the same month pattern (e.g. '2024-06' and '2025-06') when a month was selected
+    const months = chartData.map((d: any) => String(d.data).slice(-3));
+    return months[0] === months[1];
+  }, [chartData]);
+
+  const barData = useMemo(() => {
+    if (!isComparisonPair) return [] as any[];
+    const histPoint = chartData.find((d: any) => d.doses_historico !== undefined && d.doses_historico !== null);
+    const projPoint = chartData.find((d: any) => d.doses_projecao !== undefined && d.doses_projecao !== null);
+    const labelSuffix = String(histPoint?.data || projPoint?.data || "");
+    // single-row data with two keys so Bars render side-by-side
+    return [{ name: labelSuffix, hist: Number(histPoint?.doses_historico || 0), proj: Number(projPoint?.doses_projecao || 0) }];
+  }, [isComparisonPair, chartData]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || payload.length === 0) return null;
@@ -236,7 +258,17 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
             )}
           </div>
           <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={chartData}>
+            {isComparisonPair ? (
+              <BarChart data={barData} margin={{ left: 24, right: 24, top: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => numberFmt.format(Number(v))} />
+                <Tooltip formatter={(v: any) => numberFmt.format(Number(v))} />
+                <Bar dataKey="hist" name="Histórico" fill="hsl(var(--muted))" barSize={80} radius={[6,6,0,0]} />
+                <Bar dataKey="proj" name="Projeção" fill="hsl(var(--primary))" barSize={80} radius={[6,6,0,0]} />
+              </BarChart>
+            ) : (
+              <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="data" 
