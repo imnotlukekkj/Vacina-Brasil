@@ -72,9 +72,3 @@ npm run dev
 
 ## Mais detalhes do backend
 - Veja `backend/README.md` para explicações técnicas adicionais, exemplos de RPC e comportamento de fallback.
-
-## Contribuição
-- Faça fork  branch  PR. Use mensagens de commit em português e descreva claramente as mudanças.
-
-## Precisa de exemplos ou diagrama?
-- Posso adicionar exemplos `curl` para cada rota, ou um pequeno diagrama do fluxo de dados (Supabase  backend  normalizer  frontend). Diga o que prefere e eu adiciono.
