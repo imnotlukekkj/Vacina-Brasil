@@ -25,6 +25,11 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
     if (!data || !Array.isArray(data)) return [];
     const base = data.map((d) => ({
       ...d,
+      // normalize possible backend shapes: older endpoints may return
+      // `doses_previstas` (single-point monthly projection) while newer
+      // responses use `doses_projecao`. Ensure `doses_projecao` is always
+      // populated so chart lines draw correctly.
+      doses_projecao: (d as any).doses_projecao ?? (d as any).doses_previstas ?? undefined,
       ci_range:
         (d as any).intervalo_superior !== undefined && (d as any).intervalo_inferior !== undefined
           ? Math.max(0, (d as any).intervalo_superior - (d as any).intervalo_inferior)
@@ -52,6 +57,9 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
 
     return base;
   }, [data]);
+
+  // DEBUG: show processed chart data in dev to help diagnose empty charts
+  const showDebug = typeof import.meta !== "undefined" && (import.meta as any).env && (import.meta as any).env.DEV;
 
   // derive some metrics for axis/domain handling
   const { yDomain, hasSinglePoint } = useMemo(() => {
@@ -316,6 +324,14 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
               {/* message handled above the chart so it doesn't overlap SVG axes */}
             </ComposedChart>
           </ResponsiveContainer>
+          {showDebug && (
+            <div className="mt-3">
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer">Debug: chartData (dev only)</summary>
+                <pre className="whitespace-pre-wrap max-h-60 overflow-auto bg-surface p-2 rounded mt-2 text-[10px]">{JSON.stringify(chartData, null, 2)}</pre>
+              </details>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
