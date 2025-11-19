@@ -3,6 +3,8 @@ import React, { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ComposedChart, ReferenceLine, BarChart, Bar } from "recharts";
 import { motion } from "framer-motion";
 import { TrendingUp } from "lucide-react";
+import ComparisonChart from "./ComparisonChart";
+import ExplainForecastButton from "./ExplainForecastButton";
 
 interface ForecastChartProps {
   data: Array<{
@@ -173,6 +175,21 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
         </CardContent>
       </Card>
     );
+  }
+
+  // detect if incoming `data` is actually a comparison payload (from /api/previsao/comparacao)
+  const isComparisonPayload = (() => {
+    if (!data) return false;
+    // backend may send an object with `dados_comparacao` or the frontend may pass the raw array
+    const asAny: any = data as any;
+    if (asAny && asAny.dados_comparacao) return true;
+    if (Array.isArray(asAny) && asAny.length && (asAny[0].ano !== undefined || asAny[0].quantidade !== undefined)) return true;
+    return false;
+  })();
+
+  if (isComparisonPayload) {
+    // Reuse the ComparisonChart which already implements the desired two-column layout
+    return <ComparisonChart data={data as any} loading={loading} />;
   }
 
   // If no filters are selected, prompt the user to choose one. This keeps the UX clear
@@ -363,6 +380,11 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
                 <summary className="cursor-pointer">Debug: chartData (dev only)</summary>
                 <pre className="whitespace-pre-wrap max-h-60 overflow-auto bg-surface p-2 rounded mt-2 text-[10px]">{JSON.stringify(chartData, null, 2)}</pre>
               </details>
+            </div>
+          )}
+          {isComparisonPair && (
+            <div className="mt-3">
+              <ExplainForecastButton />
             </div>
           )}
         </CardContent>
