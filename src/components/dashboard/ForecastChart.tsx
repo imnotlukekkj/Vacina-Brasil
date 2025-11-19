@@ -354,8 +354,9 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
                 key="line-projecao"
               />
               {/* message handled above the chart so it doesn't overlap SVG axes */}
-            </ComposedChart>
-          </ResponsiveContainer>
+              </ComposedChart>
+              )}
+            </ResponsiveContainer>
           {showDebug && (
             <div className="mt-3">
               <details className="text-xs text-muted-foreground">
