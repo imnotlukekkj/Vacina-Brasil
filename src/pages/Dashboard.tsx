@@ -36,6 +36,9 @@ const Dashboard = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [forecastInsufficient, setForecastInsufficient] = useState(false);
 
+  // derived boolean used by ForecastChart to know if any filters are active
+  const filtersSelected = Boolean(ano || mes || uf || vacina);
+
   useEffect(() => {
     type ComparacaoRow = { ano: number | string; quantidade: number | null; tipo?: string };
     type ComparacaoResponse = { projecao_unidade?: string; dados_comparacao?: ComparacaoRow[]; [k: string]: unknown };
