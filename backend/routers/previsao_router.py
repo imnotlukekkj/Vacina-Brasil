@@ -251,7 +251,7 @@ async def api_forecast(ano: Optional[str] = Query(None), mes: Optional[str] = Qu
         if not vals:
             return JSONResponse(status_code=200, content=[])
         avg = sum(vals) / len(vals)
-        return JSONResponse(status_code=200, content=[{"data": f"2025-{int(mes):02d}", "doses_previstas": avg}])
+        return JSONResponse(status_code=200, content=[{"data": f"2025-{int(mes):02d}", "doses_previstas": avg, "doses_projecao": avg}])
     else:
         # annual totals across years
         totals_by_year: Dict[int, float] = {}
@@ -267,7 +267,7 @@ async def api_forecast(ano: Optional[str] = Query(None), mes: Optional[str] = Qu
         # simple projection: average of annual totals
         years = sorted(totals_by_year.keys())
         avg = sum(totals_by_year[y] for y in years) / len(years)
-        return JSONResponse(status_code=200, content=[{"data": "2025", "doses_previstas": avg}])
+        return JSONResponse(status_code=200, content=[{"data": "2025", "doses_previstas": avg, "doses_projecao": avg}])
 
 
 @router.get("/api/mappings")
