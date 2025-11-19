@@ -80,11 +80,19 @@ const Dashboard = (): JSX.Element => {
       // Timeseries
       setLoadingTimeseries(true);
       try {
-  const timeseries = await apiClient.getTimeseries(params);
-  if (requestCounter.current !== thisRequest) return;
-  // normalize timeseries entries to expected shape
-  const normalized = (timeseries || []).map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
-  setTimeseriesData(normalized);
+        // If user selected both year and month, show the same month across other years.
+        // To achieve this, request the timeseries without the `ano` filter so the
+        // backend returns all years for the selected month (e.g. 2022-01, 2023-01, 2024-01).
+        const timeseriesParams = { ...params } as any;
+        if (params.ano && params.mes) {
+          delete timeseriesParams.ano;
+        }
+
+        const timeseries = await apiClient.getTimeseries(timeseriesParams);
+        if (requestCounter.current !== thisRequest) return;
+        // normalize timeseries entries to expected shape
+        const normalized = (timeseries || []).map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+        setTimeseriesData(normalized);
       } catch (err) {
         // Log HTTP error details (status/body) so we can see exact failure that
         // causes the user-facing banner. apiClient now attaches `status` and `body` when
@@ -226,7 +234,21 @@ const Dashboard = (): JSX.Element => {
                   setForecastInsufficient(true);
                 } else {
                   if (requestCounter.current !== thisRequest) return;
-                  setForecastData(resp);
+                  // If a specific month is selected together with ano, the comparison
+                  // endpoint returns two rows (historical vs projeção) for that month.
+                  // Convert that shape into the ForecastChart-friendly timeseries
+                  // array when `mes` is present so the line chart can render.
+                  if (params.mes) {
+                    const m = String(params.mes).padStart(2, "0");
+                    const converted = (resp.dados_comparacao || []).map((d: any) => ({
+                      data: `${d.ano}-${m}`,
+                      doses_projecao: d.tipo === "projeção" ? (d.quantidade ?? null) : null,
+                      doses_historico: d.tipo === "historico" ? (d.quantidade ?? null) : null,
+                    }));
+                    setForecastData(converted);
+                  } else {
+                    setForecastData(resp);
+                  }
                   setForecastInsufficient(false);
                 }
               } else {
