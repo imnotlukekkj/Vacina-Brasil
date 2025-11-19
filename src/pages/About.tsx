@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, ArrowLeft, BookOpen, Target, Users } from "lucide-react";
+import { Activity, ArrowLeft, BookOpen, Target, Users, Code } from "lucide-react";
 
 const About = () => {
   return (
@@ -59,7 +59,7 @@ const About = () => {
             <CardContent>
               <p className="text-muted-foreground leading-relaxed">
                 Este projeto acadêmico tem como objetivo fornecer uma interface moderna e intuitiva para 
-                visualização e análise de dados públicos sobre a distribuição e aplicação de vacinas em 
+                visualização e análise de dados públicos sobre a distribuição de vacinas em 
                 território nacional. Através de gráficos interativos, mapas e indicadores-chave, busca-se 
                 facilitar o acompanhamento da campanha de vacinação e promover a transparência dos dados 
                 oficiais do Ministério da Saúde.
@@ -123,10 +123,33 @@ const About = () => {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Este projeto foi desenvolvido por estudantes como parte de um trabalho acadêmico, 
+                Este projeto foi idealizado por estudantes como parte de um trabalho acadêmico, 
                 com foco em aplicação prática de tecnologias modernas de desenvolvimento web e 
                 visualização de dados.
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Desenvolvedores */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Code className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle>Desenvolvedores</CardTitle>
+              </div>
+              <CardDescription>Contribuições técnicas e responsabilidades</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="font-semibold text-foreground">Luis Felipe Leandro Gomes</p>
+                <p className="text-muted-foreground text-sm">Front-end, Back-end, integrações e responsável pelo deploy da aplicação.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Yasmin Douahy Rebelo</p>
+                <p className="text-muted-foreground text-sm">Banco de dados e hospedagem do banco na nuvem.</p>
+              </div>
             </CardContent>
           </Card>
 
