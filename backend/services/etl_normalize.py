@@ -11,6 +11,9 @@ import argparse
 import json
 import re
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def load_mappings(path: Path):
@@ -112,7 +115,7 @@ def main():
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
 
-    print(f"Wrote {len(out)} records to {args.output}")
+    logger.info("Wrote %d records to %s", len(out), args.output)
 
 
 if __name__ == "__main__":

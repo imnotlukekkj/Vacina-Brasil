@@ -36,7 +36,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   
   getAPIParams: () => {
     const state = get();
-    const params: any = {};
+    const params: Partial<{ ano: string; mes: string; uf: string; fabricante: string }> = {};
     if (state.ano) params.ano = state.ano;
     if (state.mes) params.mes = state.mes;
     if (state.uf) params.uf = state.uf;

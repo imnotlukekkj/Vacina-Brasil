@@ -121,6 +121,17 @@ npm start
 
 O aplicativo estará disponível em `http://localhost:8080`
 
+### Windows (PowerShell)
+
+Se você estiver em um ambiente Windows com PowerShell, há um script auxiliar `run_dev.ps1` que inicia o backend e o frontend juntos. Se a política de execução do PowerShell impedir a execução do script, pode temporariamente permitir com:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_dev.ps1
+```
+
+O script criará (se necessário) um virtualenv em `.venv`, instalará as dependências Python do backend, iniciará o servidor FastAPI (uvicorn) em background, criará um `.env.local` apontando para `http://localhost:8000` e executará `npm run dev`.
+
 ## Python runtime (backend)
 
 O backend é um projeto Python (FastAPI) e deve ser executado com uma versão estável do Python 3.11.

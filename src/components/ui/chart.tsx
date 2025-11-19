@@ -161,10 +161,11 @@ const ChartTooltipContent = React.forwardRef<
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {payload.map((item, index) => {
-            const key = `${nameKey || item.name || item.dataKey || "value"}`;
+            const itm = item as Record<string, unknown>;
+            const key = `${nameKey || (itm.name as string | undefined) || (itm.dataKey as string | undefined) || "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
-            const indicatorColor = color || item.payload.fill || item.color;
-            const safeKey = `${(item as any).dataKey ?? (item as any).name ?? index}`;
+            const indicatorColor = (color as string) || (itm.payload && (itm.payload as Record<string, unknown>).fill) || (itm.color as string | undefined);
+            const safeKey = `${(itm.dataKey as string | undefined) ?? (itm.name as string | undefined) ?? index}`;
 
             return (
               <div
@@ -248,9 +249,10 @@ const ChartLegendContent = React.forwardRef<
       className={cn("flex items-center justify-center gap-4", verticalAlign === "top" ? "pb-3" : "pt-3", className)}
     >
       {payload.map((item) => {
-        const key = `${nameKey || (item as any).dataKey || "value"}`;
+        const itm = item as Record<string, unknown>;
+        const key = `${nameKey || (itm.dataKey as string | undefined) || "value"}`;
         const itemConfig = getPayloadConfigFromPayload(config, item, key);
-        const safeKey = `${(item as any).dataKey ?? (item as any).value ?? (item as any).name ?? Math.random()}`;
+        const safeKey = `${(itm.dataKey as string | undefined) ?? (itm.value as string | number | undefined) ?? (itm.name as string | undefined) ?? Math.random()}`;
 
         return (
           <div

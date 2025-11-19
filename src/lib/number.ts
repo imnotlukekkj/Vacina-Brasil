@@ -1,15 +1,15 @@
-export function parsePtNumber(v: any): number | null {
+export function parsePtNumber(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   if (typeof v === "number") {
     return Number.isFinite(v) ? v : null;
   }
   if (typeof v !== "string") {
-    // try native coercion
-    const n = Number(v as any);
+    // try native coercion for non-string values
+    const n = Number(v as number | string | bigint | boolean);
     return Number.isFinite(n) ? n : null;
   }
 
-  let s = v.trim();
+  let s = (v as string).trim();
   if (s === "") return null;
   // remove non-breaking spaces
   s = s.replace(/\u00A0/g, "");
@@ -31,7 +31,7 @@ export function parsePtNumber(v: any): number | null {
   }
 
   // strip any remaining non-digit/decimal/minus chars
-  s = s.replace(/[^0-9.\-]/g, '');
+  s = s.replace(/[^0-9.-]/g, '');
   if (s === '' || s === '.' || s === '-' || s === '-.' ) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;

@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException
 from typing import Optional, Any, Dict, List
 import os
 import re
@@ -11,9 +10,7 @@ from ..utils.env_utils import ensure_loaded_backend_env
 from ..normalizer import get_default_normalizer
 from ..repositories.supabase_repo import (
     get_supabase_client,
-    http_rpc_call,
     normalize_row,
-    extract_number_from_rpc_result,
     rpc_get_historico_e_previsao_raw,
     rpc_obter_soma_por_ano_value,
     rpc_obter_projecao_ano,
@@ -21,7 +18,10 @@ from ..repositories.supabase_repo import (
 )
 from ..schemas.previsao_schemas import ComparisonResponse
 
+import logging
+
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # Backwards-compatible stub endpoints for legacy frontend routes.
@@ -72,7 +72,7 @@ async def _fetch_rows_from_supabase(table: str, filters: Dict[str, Optional[str]
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(url, params=params, headers=headers)
         if resp.status_code != 200:
-            print(f"Supabase request failed: {resp.status_code} {resp.text}")
+            logger.warning("Supabase request failed: %s %s", resp.status_code, resp.text)
             return []
         data = resp.json()
     except Exception:
@@ -521,7 +521,6 @@ async def previsao_comparacao(
     fabricante_norm = normalizer.normalize_insumo(insumo_nome_trim) if insumo_nome_trim else None
 
     # Prepare params for obter_soma_por_ano: per spec pass _ano=2024
-    soma_rpc = "obter_soma_por_ano"
     params_plain_soma: Dict[str, Any] = {"ano": 2024}
     params_underscored_soma: Dict[str, Any] = {"_ano": 2024}
     if insumo_nome_trim:

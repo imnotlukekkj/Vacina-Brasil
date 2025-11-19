@@ -23,7 +23,7 @@ class APIClient {
     const url = new URL(endpoint, this.baseURL);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value) url.searchParams.append(key, value);
+        if (value !== undefined && value !== null && String(value).length > 0) url.searchParams.append(key, String(value));
       });
     }
     return url.toString();
@@ -34,7 +34,7 @@ class APIClient {
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
-      const err: any = new Error(`Erro ao buscar overview: ${response.status} ${txt}`);
+      const err = new Error(`Erro ao buscar overview: ${response.status} ${txt}`) as Error & { status?: number; body?: unknown };
       err.status = response.status;
       err.body = txt;
       throw err;
@@ -47,15 +47,18 @@ class APIClient {
         // unexpected array -> return empty overview
         return { total_doses: 0, periodo: undefined };
       }
-      if (payload.total_doses !== undefined) {
-        return { total_doses: Number(payload.total_doses || 0), periodo: payload.periodo };
+      const obj = payload as Record<string, unknown>;
+      if (obj["total_doses"] !== undefined) {
+        return { total_doses: Number(obj["total_doses"] ?? 0), periodo: obj["periodo"] as string | undefined };
       }
       // common wrapper shapes: { data: { ... } } or { result: { ... } }
-      if (payload.data && payload.data.total_doses !== undefined) {
-        return { total_doses: Number(payload.data.total_doses || 0), periodo: payload.data.periodo };
+      if (obj["data"] && typeof obj["data"] === "object") {
+        const inner = obj["data"] as Record<string, unknown>;
+        if (inner["total_doses"] !== undefined) return { total_doses: Number(inner["total_doses"] ?? 0), periodo: inner["periodo"] as string | undefined };
       }
-      if (payload.result && payload.result.total_doses !== undefined) {
-        return { total_doses: Number(payload.result.total_doses || 0), periodo: payload.result.periodo };
+      if (obj["result"] && typeof obj["result"] === "object") {
+        const inner = obj["result"] as Record<string, unknown>;
+        if (inner["total_doses"] !== undefined) return { total_doses: Number(inner["total_doses"] ?? 0), periodo: inner["periodo"] as string | undefined };
       }
     }
     // fallback: empty overview
@@ -67,7 +70,7 @@ class APIClient {
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
-      const err: any = new Error(`Erro ao buscar série temporal: ${response.status} ${txt}`);
+      const err = new Error(`Erro ao buscar série temporal: ${response.status} ${txt}`) as Error & { status?: number; body?: unknown };
       err.status = response.status;
       err.body = txt;
       throw err;
@@ -76,13 +79,25 @@ class APIClient {
     // Backend returns an array of { data: string, doses_distribuidas: number }
     // Normalize common wrapper shapes defensively.
     if (Array.isArray(payload)) {
-      return payload.map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+      return payload.map((p: unknown) => {
+        const obj = p as Record<string, unknown>;
+        return { data: String(obj["data"] ?? ""), doses_distribuidas: Number(obj["doses_distribuidas"] ?? 0) } as TimeseriesDataPoint;
+      });
     }
-    if (payload && payload.data && Array.isArray(payload.data)) {
-      return payload.data.map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
-    }
-    if (payload && payload.result && Array.isArray(payload.result)) {
-      return payload.result.map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+    if (payload && typeof payload === "object") {
+      const obj = payload as Record<string, unknown>;
+      if (Array.isArray(obj["data"])) {
+        return (obj["data"] as Array<unknown>).map((p) => {
+          const item = p as Record<string, unknown>;
+          return { data: String(item["data"] ?? ""), doses_distribuidas: Number(item["doses_distribuidas"] ?? 0) } as TimeseriesDataPoint;
+        });
+      }
+      if (Array.isArray(obj["result"])) {
+        return (obj["result"] as Array<unknown>).map((p) => {
+          const item = p as Record<string, unknown>;
+          return { data: String(item["data"] ?? ""), doses_distribuidas: Number(item["doses_distribuidas"] ?? 0) } as TimeseriesDataPoint;
+        });
+      }
     }
     // fallback: empty array
     return [];
@@ -93,7 +108,7 @@ class APIClient {
     const response = await fetch(url);
     if (!response.ok) {
       const txt = await response.text();
-      const err: any = new Error(`Erro ao buscar ranking: ${response.status} ${txt}`);
+      const err = new Error(`Erro ao buscar ranking: ${response.status} ${txt}`) as Error & { status?: number; body?: unknown };
       err.status = response.status;
       err.body = txt;
       throw err;
@@ -101,14 +116,26 @@ class APIClient {
     const payload = await response.json();
     // Backend returns an array of { uf, sigla, doses_distribuidas }
     if (Array.isArray(payload)) {
-      return payload.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+      return payload.map((p: unknown) => {
+        const obj = p as Record<string, unknown>;
+        return { uf: String(obj["uf"] ?? ""), sigla: String(obj["sigla"] ?? ""), doses_distribuidas: Number(obj["doses_distribuidas"] ?? 0) } as RankingUF;
+      });
     }
     // wrapper shapes
-    if (payload && Array.isArray(payload.data)) {
-      return payload.data.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
-    }
-    if (payload && Array.isArray(payload.result)) {
-      return payload.result.map((p: any) => ({ uf: String(p.uf), sigla: String(p.sigla), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+    if (payload && typeof payload === "object") {
+      const obj = payload as Record<string, unknown>;
+      if (Array.isArray(obj["data"])) {
+        return (obj["data"] as Array<unknown>).map((p) => {
+          const it = p as Record<string, unknown>;
+          return { uf: String(it["uf"] ?? ""), sigla: String(it["sigla"] ?? ""), doses_distribuidas: Number(it["doses_distribuidas"] ?? 0) } as RankingUF;
+        });
+      }
+      if (Array.isArray(obj["result"])) {
+        return (obj["result"] as Array<unknown>).map((p) => {
+          const it = p as Record<string, unknown>;
+          return { uf: String(it["uf"] ?? ""), sigla: String(it["sigla"] ?? ""), doses_distribuidas: Number(it["doses_distribuidas"] ?? 0) } as RankingUF;
+        });
+      }
     }
     return [];
   }
@@ -119,7 +146,7 @@ class APIClient {
     if (!response.ok) {
       throw new Error(`Erro ao buscar previsão: ${response.statusText}`);
     }
-    return response.json();
+    return response.json() as Promise<ForecastDataPoint[]>;
   }
 
   async getPrevisao(params: { insumo_nome: string; uf?: string; mes?: number | string }): Promise<PrevisaoResponse> {
@@ -131,12 +158,12 @@ class APIClient {
     const response = await fetch(url.toString());
     if (!response.ok) {
       const txt = await response.text();
-      const err: any = new Error(`Erro ao buscar /api/previsao: ${response.status} ${txt}`);
+      const err = new Error(`Erro ao buscar /api/previsao: ${response.status} ${txt}`) as Error & { status?: number; body?: unknown };
       err.status = response.status;
       err.body = txt;
       throw err;
     }
-    return response.json();
+    return response.json() as Promise<PrevisaoResponse>;
   }
 
   async getComparacao(params: { insumo_nome?: string; ano?: number | string; uf?: string; mes?: number | string }) {
@@ -151,12 +178,12 @@ class APIClient {
     const response = await fetch(url.toString());
     if (!response.ok) {
       const txt = await response.text();
-      const err: any = new Error(`Erro ao buscar /api/previsao/comparacao: ${response.status} ${txt}`);
+      const err = new Error(`Erro ao buscar /api/previsao/comparacao: ${response.status} ${txt}`) as Error & { status?: number; body?: unknown };
       err.status = response.status;
       err.body = txt;
       throw err;
     }
-    return response.json();
+    return response.json() as Promise<unknown>;
   }
 
   // Retorna lista de vacinas disponíveis com total de doses, com shape
@@ -169,12 +196,15 @@ class APIClient {
     }
     const payload = await response.json();
     // Expecting an array of objects. Handle common wrapper shapes defensively.
-    let items: any[] = [];
-    if (Array.isArray(payload)) items = payload;
-    else if (payload && Array.isArray(payload.data)) items = payload.data;
-    else if (payload && Array.isArray(payload.result)) items = payload.result;
+    let items: Array<unknown> = [];
+    if (Array.isArray(payload)) items = payload as Array<unknown>;
+    else if (payload && Array.isArray((payload as Record<string, unknown>)["data"])) items = (payload as Record<string, unknown>)["data"] as Array<unknown>;
+    else if (payload && Array.isArray((payload as Record<string, unknown>)["result"])) items = (payload as Record<string, unknown>)["result"] as Array<unknown>;
 
-    return items.map((p: any) => ({ vacina: String(p.vacina || p.nome || ""), total_doses: Number(p.total_doses || p.qtde || 0) }));
+    return items.map((p) => {
+      const obj = p as Record<string, unknown>;
+      return { vacina: String(obj["vacina"] ?? obj["nome"] ?? ""), total_doses: Number(obj["total_doses"] ?? obj["qtde"] ?? 0) };
+    });
   }
 }
 

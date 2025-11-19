@@ -2,6 +2,9 @@ import json
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Normalizer:
@@ -79,4 +82,4 @@ def get_default_normalizer() -> Normalizer:
 
 if __name__ == "__main__":
     n = get_default_normalizer()
-    print(f"Loaded {len(n.mappings)} mappings")
+    logger.info("Loaded %d mappings", len(n.mappings))

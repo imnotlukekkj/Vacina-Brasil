@@ -17,7 +17,6 @@ echo "[run_dev] instalando dependências Python..."
 pip install -r backend/requirements.txt
 
 echo "[run_dev] iniciando backend (uvicorn) em background..."
-python -m uvicorn backend.app:app --reload --port 8000 &
 python -m uvicorn backend.app:app --reload --reload-dir backend --port 8000 &
 BACKEND_PID=$!
 echo "[run_dev] backend PID=$BACKEND_PID"

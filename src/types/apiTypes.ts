@@ -29,7 +29,7 @@ export interface PrevisaoResponse {
   status: "success" | string;
   purpose?: string;
   ano_previsao?: number;
-  filtros_aplicados?: Record<string, any>;
+  filtros_aplicados?: Record<string, unknown>;
   previsao_doses?: number | null;
 }
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Activity, AlertCircle, Info } from "lucide-react";
 import { useFilterStore } from "@/stores/filterStore";
 import { apiClient } from "@/services/apiClient";
-import { OverviewData, TimeseriesDataPoint, RankingUF, ForecastDataPoint } from "@/types/apiTypes";
+import { OverviewData, TimeseriesDataPoint, RankingUF, ForecastDataPoint, FilterParams } from "@/types/apiTypes";
 import FilterSection from "@/components/dashboard/FilterSection";
 import KPICards from "@/components/dashboard/KPICards";
 import TimeseriesChart from "@/components/dashboard/TimeseriesChart";
@@ -17,7 +17,6 @@ import { motion } from "framer-motion";
 
 const Dashboard = (): JSX.Element => {
   const { ano, mes, uf, vacina, getAPIParams } = useFilterStore();
-  const filtersSelected = Boolean(ano || mes || uf || vacina);
 
   // request counter to avoid race conditions when multiple rapid filter changes
   // incrementing this value cancels previous in-flight fetches (we check it
@@ -27,7 +26,7 @@ const Dashboard = (): JSX.Element => {
   const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
   const [timeseriesData, setTimeseriesData] = useState<TimeseriesDataPoint[]>([]);
   const [rankingData, setRankingData] = useState<RankingUF[]>([]);
-  const [forecastData, setForecastData] = useState<any>([]);
+  const [forecastData, setForecastData] = useState<unknown>([]);
 
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [loadingTimeseries, setLoadingTimeseries] = useState(false);
@@ -38,6 +37,8 @@ const Dashboard = (): JSX.Element => {
   const [forecastInsufficient, setForecastInsufficient] = useState(false);
 
   useEffect(() => {
+    type ComparacaoRow = { ano: number | string; quantidade: number | null; tipo?: string };
+    type ComparacaoResponse = { projecao_unidade?: string; dados_comparacao?: ComparacaoRow[]; [k: string]: unknown };
     const fetchData = async () => {
       const thisRequest = ++requestCounter.current;
       const params = getAPIParams();
@@ -50,27 +51,13 @@ const Dashboard = (): JSX.Element => {
         overview = await apiClient.getOverview(params);
         // if a newer request started, stop processing this one
         if (requestCounter.current !== thisRequest) return;
-        // ensure numeric shape: backend may return numbers as strings in some proxies
-        const normalizedOverview = {
-          total_doses: Number((overview as any)?.total_doses || 0),
-          periodo: (overview as any)?.periodo,
+        // ensure numeric shape: backend returns OverviewData but be defensive
+        const normalizedOverview: OverviewData = {
+          total_doses: Number(overview?.total_doses ?? 0),
+          periodo: overview?.periodo,
         };
         setOverviewData(normalizedOverview);
       } catch (err) {
-        // Log HTTP error details (status/body) so we can see exact failure that
-        // causes the user-facing banner. apiClient now attaches `status` and `body` when
-        // the response is not ok.
-        try {
-          // eslint-disable-next-line no-console
-          console.log("Overview fetch failed:", {
-            status: (err as any)?.status,
-            body: (err as any)?.body,
-            message: (err as any)?.message,
-            raw: err,
-          });
-        } catch (e) {
-          // ignore logging errors
-        }
         setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
@@ -83,31 +70,17 @@ const Dashboard = (): JSX.Element => {
         // If user selected both year and month, show the same month across other years.
         // To achieve this, request the timeseries without the `ano` filter so the
         // backend returns all years for the selected month (e.g. 2022-01, 2023-01, 2024-01).
-        const timeseriesParams = { ...params } as any;
+        const timeseriesParams = { ...(params as FilterParams) } as FilterParams;
         if (params.ano && params.mes) {
           delete timeseriesParams.ano;
         }
 
         const timeseries = await apiClient.getTimeseries(timeseriesParams);
         if (requestCounter.current !== thisRequest) return;
-        // normalize timeseries entries to expected shape
-        const normalized = (timeseries || []).map((p: any) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
+        // API returns TimeseriesDataPoint[]; normalize defensively
+        const normalized = (timeseries || []).map((p: TimeseriesDataPoint) => ({ data: String(p.data), doses_distribuidas: Number(p.doses_distribuidas || 0) }));
         setTimeseriesData(normalized);
       } catch (err) {
-        // Log HTTP error details (status/body) so we can see exact failure that
-        // causes the user-facing banner. apiClient now attaches `status` and `body` when
-        // the response is not ok.
-        try {
-          // eslint-disable-next-line no-console
-          console.log("Timeseries fetch failed:", {
-            status: (err as any)?.status,
-            body: (err as any)?.body,
-            message: (err as any)?.message,
-            raw: err,
-          });
-        } catch (e) {
-          // ignore logging errors
-        }
         setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
@@ -121,17 +94,6 @@ const Dashboard = (): JSX.Element => {
         if (requestCounter.current !== thisRequest) return;
         setRankingData(ranking);
       } catch (err) {
-        try {
-          // eslint-disable-next-line no-console
-          console.log("Ranking fetch failed:", {
-            status: (err as any)?.status,
-            body: (err as any)?.body,
-            message: (err as any)?.message,
-            raw: err,
-          });
-        } catch (e) {
-          // ignore logging errors
-        }
         setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
@@ -140,7 +102,7 @@ const Dashboard = (): JSX.Element => {
 
       // Forecast
       setForecastInsufficient(false);
-      if (!filtersSelected) {
+      if (!(ano || mes || uf || vacina)) {
         setForecastData([]);
         setLoadingForecast(false);
         return;
@@ -151,7 +113,7 @@ const Dashboard = (): JSX.Element => {
     const forecast = await apiClient.getForecast(params);
     if (requestCounter.current !== thisRequest) return;
     // keep existing forecast series from the legacy /forecast endpoint
-    let merged = forecast || [];
+    const merged = forecast || [];
 
   // if user selected a vacina, call the new comparison endpoint and render a simple bar chart
   if (vacina) {
@@ -164,15 +126,18 @@ const Dashboard = (): JSX.Element => {
               setForecastInsufficient(true);
             } else {
               // endpoint requires ano=2024 per backend validation
-              const resp: any = await apiClient.getComparacao({ insumo_nome: vacinaTrim, ano: 2024, uf: uf || undefined, mes: mes || undefined });
+              type ComparacaoRow = { ano: number | string; quantidade: number | null; tipo?: string };
+              type ComparacaoResponse = { projecao_unidade?: string; dados_comparacao?: ComparacaoRow[]; [k: string]: unknown };
+              const respRaw = await apiClient.getComparacao({ insumo_nome: vacinaTrim, ano: 2024, uf: uf || undefined, mes: mes || undefined });
+              const resp = respRaw as ComparacaoResponse;
 
             // resp.dados_comparacao is expected to be an array like [{ ano: 2024, quantidade: number|null, tipo: 'historico' }, { ano: 2025, quantidade: number|null, tipo: 'projeção' }]
             if (resp && Array.isArray(resp.dados_comparacao)) {
               const dados = resp.dados_comparacao;
 
               // mark insufficient if both quantities are null (backend uses null when no usable data)
-              const q2024 = dados.find((d: any) => Number(d.ano) === 2024)?.quantidade ?? null;
-              const q2025 = dados.find((d: any) => Number(d.ano) === 2025)?.quantidade ?? null;
+              const q2024 = dados.find((d) => Number((d as ComparacaoRow).ano) === 2024)?.quantidade ?? null;
+              const q2025 = dados.find((d) => Number((d as ComparacaoRow).ano) === 2025)?.quantidade ?? null;
               if ((q2024 === null || q2024 === 0) && (q2025 === null || q2025 === 0)) {
                 setForecastData([]);
                 setForecastInsufficient(true);
@@ -180,7 +145,7 @@ const Dashboard = (): JSX.Element => {
                 // pass the comparison payload (may include projecao_unidade) to the chart component
                 // store the full response so the chart can annualize when appropriate
                 if (requestCounter.current !== thisRequest) return;
-                setForecastData(resp as any);
+                setForecastData(resp);
                 setForecastInsufficient(false);
               }
             } else {
@@ -190,25 +155,13 @@ const Dashboard = (): JSX.Element => {
               setForecastInsufficient(true);
             }
             }
-          } catch (err: any) {
-            // Log HTTP error details for the comparison call
-            try {
-              // eslint-disable-next-line no-console
-              console.log("Comparacao (vacina) fetch failed:", {
-                status: (err as any)?.status,
-                body: (err as any)?.body,
-                message: (err as any)?.message,
-                raw: err,
-              });
-            } catch (e) {
-              // ignore logging errors
-            }
+            } catch (err) {
             // bubble up specific statuses if needed
-            if (err && err.status === 400) {
+            const apiErr = err as Error & { status?: number; body?: unknown };
+            if (apiErr && apiErr.status === 400) {
               // validation error from backend (e.g. ano must be 2024) – surface to user
-              setError(err.body || String(err));
+              setError(String(apiErr.body ?? apiErr.message));
             } else {
-              console.warn("Falha ao chamar /api/previsao/comparacao:", err);
               setForecastData([]);
               setForecastInsufficient(true);
             }
@@ -221,13 +174,14 @@ const Dashboard = (): JSX.Element => {
               // Use the same comparison logic as the vacina flow by calling the
               // backend /api/previsao/comparacao WITHOUT an insumo_nome so the
               // server computes totals/projecoes across all vacinas.
-              const resp: any = await apiClient.getComparacao({ ano: Number(ano), uf: uf || undefined, mes: mes || undefined });
+              const respRaw = await apiClient.getComparacao({ ano: Number(ano), uf: uf || undefined, mes: mes || undefined });
+              const resp = respRaw as ComparacaoResponse;
 
                 if (requestCounter.current !== thisRequest) return;
 
               if (resp && Array.isArray(resp.dados_comparacao)) {
-                const q2024 = resp.dados_comparacao.find((d: any) => Number(d.ano) === Number(ano))?.quantidade ?? null;
-                const q2025 = resp.dados_comparacao.find((d: any) => Number(d.ano) === 2025)?.quantidade ?? null;
+                const q2024 = resp.dados_comparacao?.find((d) => Number((d as ComparacaoRow).ano) === Number(ano))?.quantidade ?? null;
+                const q2025 = resp.dados_comparacao?.find((d) => Number((d as ComparacaoRow).ano) === 2025)?.quantidade ?? null;
                 if ((q2024 === null || q2024 === 0) && (q2025 === null || q2025 === 0)) {
                   if (requestCounter.current !== thisRequest) return;
                   setForecastData([]);
@@ -240,11 +194,14 @@ const Dashboard = (): JSX.Element => {
                   // array when `mes` is present so the line chart can render.
                   if (params.mes) {
                     const m = String(params.mes).padStart(2, "0");
-                    const converted = (resp.dados_comparacao || []).map((d: any) => ({
-                      data: `${d.ano}-${m}`,
-                      doses_projecao: d.tipo === "projeção" ? (d.quantidade ?? null) : null,
-                      doses_historico: d.tipo === "historico" ? (d.quantidade ?? null) : null,
-                    }));
+                    const converted = (resp.dados_comparacao || []).map((d) => {
+                      const row = d as { ano: number | string; quantidade: number | null; tipo?: string };
+                      return {
+                        data: `${row.ano}-${m}`,
+                        doses_projecao: row.tipo === "projeção" ? (row.quantidade ?? null) : null,
+                        doses_historico: row.tipo === "historico" ? (row.quantidade ?? null) : null,
+                      } as ForecastDataPoint;
+                    });
                     setForecastData(converted);
                   } else {
                     setForecastData(resp);
@@ -257,17 +214,6 @@ const Dashboard = (): JSX.Element => {
                 setForecastInsufficient(true);
               }
             } catch (err) {
-              try {
-                // eslint-disable-next-line no-console
-                console.log("Comparacao (totais) fetch failed:", {
-                  status: (err as any)?.status,
-                  body: (err as any)?.body,
-                  message: (err as any)?.message,
-                  raw: err,
-                });
-              } catch (e) {
-                // ignore logging errors
-              }
               if (requestCounter.current !== thisRequest) return;
               setForecastData([]);
               setForecastInsufficient(true);
@@ -278,17 +224,6 @@ const Dashboard = (): JSX.Element => {
           }
         }
       } catch (err) {
-        try {
-          // eslint-disable-next-line no-console
-          console.log("Forecast fetch failed:", {
-            status: (err as any)?.status,
-            body: (err as any)?.body,
-            message: (err as any)?.message,
-            raw: err,
-          });
-        } catch (e) {
-          // ignore logging errors
-        }
         setError("Erro ao carregar dados. Verifique se o backend está rodando.");
         console.error(err);
       } finally {
@@ -297,12 +232,16 @@ const Dashboard = (): JSX.Element => {
     };
 
     fetchData();
+    // capture the counter value after starting the fetch so the cleanup
+    // can reliably invalidate this specific run without reading a ref
+    // value that may have changed later (avoids eslint hook warning).
+    const effectSnapshot = requestCounter.current;
     // cancel/ignore previous in-flight fetches when any dependency changes
     return () => {
-      // incrementing the counter will make older requests bail out on their next check
-      requestCounter.current++;
+      // set the counter to snapshot+1 to invalidate this run
+      requestCounter.current = effectSnapshot + 1;
     };
-  }, [ano, mes, uf, vacina]);
+  }, [ano, mes, uf, vacina, getAPIParams]);
 
   return (
     <div className="min-h-screen bg-background">

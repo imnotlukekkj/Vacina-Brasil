@@ -85,14 +85,16 @@ const BrazilMap = ({ data, loading, selectedUF = null }: BrazilMapProps) => {
               <p className="text-muted-foreground">Nenhum dado disponível para o mapa</p>
             </div>
           ) : (
-            <div className="w-full h-96 relative">
-              <ComposableMap
-                projection="geoMercator"
-                projectionConfig={{
-                  scale: 600,
-                  center: [-55, -15],
-                }}
-              >
+            <div className="w-full h-96 relative flex items-center justify-center">
+              <div className="w-full h-full max-w-[760px]">
+                <ComposableMap
+                  className="w-full h-full"
+                  projection="geoMercator"
+                  projectionConfig={{
+                    scale: 600,
+                    center: [-55, -15],
+                  }}
+                >
                 <Geographies geography={geoUrl}>
                   {({ geographies }) =>
                     geographies.map((geo) => {
@@ -128,7 +130,8 @@ const BrazilMap = ({ data, loading, selectedUF = null }: BrazilMapProps) => {
                     })
                   }
                 </Geographies>
-              </ComposableMap>
+                </ComposableMap>
+              </div>
 
               {hover.visible && (
                 <div

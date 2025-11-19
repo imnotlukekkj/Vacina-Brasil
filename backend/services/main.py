@@ -1,6 +1,7 @@
 import psycopg
 from dotenv import load_dotenv
 import os
+import logging
 
 # Load environment variables from .env
 load_dotenv()
@@ -11,6 +12,9 @@ PASSWORD = os.getenv("password")
 HOST = os.getenv("host")
 PORT = os.getenv("port")
 DBNAME = os.getenv("dbname")
+
+logger = logging.getLogger(__name__)
+
 
 def main():
     # Connect to the database
@@ -23,7 +27,7 @@ def main():
             port=PORT,
             dbname=DBNAME
         )
-        print("Connection successful!")
+        logger.info("Connection successful")
         
         # Create a cursor to execute SQL queries
         cursor = connection.cursor()
@@ -31,15 +35,15 @@ def main():
         # Example query
         cursor.execute("SELECT NOW();")
         result = cursor.fetchone()
-        print("Current Time:", result)
+        logger.info("Current Time: %s", result)
 
         # Close the cursor and connection
         cursor.close()
         connection.close()
-        print("Connection closed.")
+        logger.info("Connection closed")
 
     except Exception as e:
-        print(f"Failed to connect: {e}")
+        logger.exception("Failed to connect: %s", e)
 
 
 if __name__ == "__main__":

@@ -18,29 +18,37 @@ interface ForecastChartProps {
   loading: boolean;
   filtersSelected?: boolean;
 }
+type RawPoint = {
+  data: string;
+  doses_previstas?: number | null;
+  doses_historico?: number | null;
+  doses_projecao?: number | null;
+  intervalo_inferior?: number | null;
+  intervalo_superior?: number | null;
+  synthetic?: boolean;
+  [k: string]: unknown;
+};
+
+type ChartPoint = RawPoint & { doses_projecao?: number | undefined; ci_range?: number };
 
 const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChartProps) => {
   const numberFmt = useMemo(() => new Intl.NumberFormat("pt-BR"), []);
 
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo<ChartPoint[]>(() => {
     if (!data || !Array.isArray(data)) return [];
-    const base = data.map((d) => ({
-      ...d,
-      // normalize possible backend shapes: older endpoints may return
-      // `doses_previstas` (single-point monthly projection) while newer
-      // responses use `doses_projecao`. Ensure `doses_projecao` is always
-      // populated so chart lines draw correctly.
-      doses_projecao: (d as any).doses_projecao ?? (d as any).doses_previstas ?? undefined,
-      ci_range:
-        (d as any).intervalo_superior !== undefined && (d as any).intervalo_inferior !== undefined
-          ? Math.max(0, (d as any).intervalo_superior - (d as any).intervalo_inferior)
-          : undefined,
-    }));
+    const base = (data as RawPoint[]).map((d) => {
+      const raw = d;
+      const doses_projecao = raw.doses_projecao ?? raw.doses_previstas ?? undefined;
+      const intervalo_superior = raw.intervalo_superior ?? undefined;
+      const intervalo_inferior = raw.intervalo_inferior ?? undefined;
+      const ci_range = intervalo_superior !== undefined && intervalo_inferior !== undefined ? Math.max(0, Number(intervalo_superior) - Number(intervalo_inferior)) : undefined;
+      return { ...raw, doses_projecao, ci_range } as ChartPoint;
+    });
 
     // if there's only one meaningful point, add a small synthetic previous point
     const meaningful = base.filter(
-      (d) => (d as any).doses_previstas !== undefined || ((d as any).intervalo_superior !== undefined && (d as any).intervalo_inferior !== undefined) || ((d as any).doses_historico !== undefined && (d as any).doses_historico !== null) || ((d as any).doses_projecao !== undefined && (d as any).doses_projecao !== null)
+      (d) => d.doses_previstas !== undefined || (d.intervalo_superior !== undefined && d.intervalo_inferior !== undefined) || (d.doses_historico !== undefined && d.doses_historico !== null) || (d.doses_projecao !== undefined && d.doses_projecao !== null)
     );
     if (meaningful.length === 1) {
       const p = meaningful[0];
@@ -61,18 +69,18 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
   }, [data]);
 
   // DEBUG: show processed chart data in dev to help diagnose empty charts
-  const showDebug = typeof import.meta !== "undefined" && (import.meta as any).env && (import.meta as any).env.DEV;
+  const meta = (import.meta as unknown) as { env?: Record<string, unknown> };
+  const showDebug = typeof import.meta !== "undefined" && !!meta.env && !!meta.env.DEV;
 
   // derive some metrics for axis/domain handling
   const { yDomain, hasSinglePoint } = useMemo(() => {
     const vals: number[] = [];
     chartData.forEach((d) => {
-      const dd: any = d;
-      if (dd.doses_previstas !== undefined) vals.push(Number(dd.doses_previstas));
-      if (dd.doses_historico !== undefined && dd.doses_historico !== null) vals.push(Number(dd.doses_historico));
-      if (dd.doses_projecao !== undefined && dd.doses_projecao !== null) vals.push(Number(dd.doses_projecao));
-      if (dd.intervalo_inferior !== undefined) vals.push(Number(dd.intervalo_inferior));
-      if (dd.intervalo_superior !== undefined) vals.push(Number(dd.intervalo_superior));
+      if (d.doses_previstas !== undefined && d.doses_previstas !== null) vals.push(Number(d.doses_previstas));
+      if (d.doses_historico !== undefined && d.doses_historico !== null) vals.push(Number(d.doses_historico));
+      if (d.doses_projecao !== undefined && d.doses_projecao !== null) vals.push(Number(d.doses_projecao));
+      if (d.intervalo_inferior !== undefined && d.intervalo_inferior !== null) vals.push(Number(d.intervalo_inferior));
+      if (d.intervalo_superior !== undefined && d.intervalo_superior !== null) vals.push(Number(d.intervalo_superior));
     });
 
     const max = vals.length ? Math.max(...vals) : 0;
@@ -82,10 +90,7 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
     let domainMax = max;
 
     // If there's only one meaningful value, provide a nicer domain so the point doesn't sit on a flat axis
-    const meaningfulPoints = chartData.filter((d) => {
-      const dd: any = d;
-      return (dd.doses_previstas !== undefined) || (dd.doses_historico !== undefined && dd.doses_historico !== null) || (dd.doses_projecao !== undefined && dd.doses_projecao !== null) || (dd.intervalo_superior !== undefined && dd.intervalo_inferior !== undefined);
-    });
+    const meaningfulPoints = chartData.filter((d) => d.doses_previstas !== undefined || (d.doses_historico !== undefined && d.doses_historico !== null) || (d.doses_projecao !== undefined && d.doses_projecao !== null) || (d.intervalo_superior !== undefined && d.intervalo_inferior !== undefined));
     const single = meaningfulPoints.length === 1;
     if (single) {
       // give some headroom (moderate)
@@ -100,40 +105,49 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
   // detect simple comparison pair: one historical point and one projection for the same month
   const isComparisonPair = useMemo(() => {
     if (!chartData || chartData.length !== 2) return false;
-    const a: any = chartData[0];
-    const b: any = chartData[1];
+    const a = chartData[0];
+    const b = chartData[1];
     const hasHist = (a.doses_historico !== undefined && a.doses_historico !== null) || (b.doses_historico !== undefined && b.doses_historico !== null);
     const hasProj = (a.doses_projecao !== undefined && a.doses_projecao !== null) || (b.doses_projecao !== undefined && b.doses_projecao !== null);
     if (!hasHist || !hasProj) return false;
     // ensure both points refer to the same month pattern (e.g. '2024-06' and '2025-06') when a month was selected
-    const months = chartData.map((d: any) => String(d.data).slice(-3));
+    const months = chartData.map((d) => {
+      const s = String(d.data);
+      return s.includes("-") ? s.slice(-3) : s.slice(-2);
+    });
     return months[0] === months[1];
   }, [chartData]);
 
+  // (no early return here) when there's a month-pair we'll render the
+  // ComparisonChart inside the main return to keep hook order stable.
+
   const barData = useMemo(() => {
-    if (!isComparisonPair) return [] as any[];
-    const histPoint = chartData.find((d: any) => d.doses_historico !== undefined && d.doses_historico !== null);
-    const projPoint = chartData.find((d: any) => d.doses_projecao !== undefined && d.doses_projecao !== null);
+    if (!isComparisonPair) return [] as { name: string; hist: number; proj: number }[];
+    const histPoint = chartData.find((d) => d.doses_historico !== undefined && d.doses_historico !== null);
+    const projPoint = chartData.find((d) => d.doses_projecao !== undefined && d.doses_projecao !== null);
     const labelSuffix = String(histPoint?.data || projPoint?.data || "");
     // single-row data with two keys so Bars render side-by-side
-    return [{ name: labelSuffix, hist: Number(histPoint?.doses_historico || 0), proj: Number(projPoint?.doses_projecao || 0) }];
+    return [{ name: labelSuffix, hist: Number(histPoint?.doses_historico ?? 0), proj: Number(projPoint?.doses_projecao ?? 0) }];
   }, [isComparisonPair, chartData]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: unknown[]; label?: string | number }) => {
   if (!active || !payload || payload.length === 0) return null;
     // payload[0].payload is the data object for the hovered point
-    const payloadPoint = payload[0] && payload[0].payload ? payload[0].payload : null;
+    const first = payload[0] as Record<string, unknown> | undefined;
+    const payloadPoint = first && first.payload ? (first.payload as ChartPoint) : null;
     // if the hovered point is synthetic, show the next real point's values (so tooltip displays 2025 instead of the synthetic prev label)
-    let displayPoint = payloadPoint;
-    if (payloadPoint && (payloadPoint as any).synthetic) {
-      const nextReal = chartData.find((d: any) => !d.synthetic && (d.doses_previstas !== undefined || d.doses_historico !== undefined || d.doses_projecao !== undefined));
+    let displayPoint: ChartPoint | null = payloadPoint;
+    if (payloadPoint && payloadPoint.synthetic) {
+      const nextReal = chartData.find((d) => !d.synthetic && (d.doses_previstas !== undefined || d.doses_historico !== undefined || d.doses_projecao !== undefined));
       if (nextReal) displayPoint = nextReal;
     }
 
-    const p = payload.reduce((acc: any, cur: any) => {
-      acc[cur.dataKey] = cur.value;
+    const p = (payload as Record<string, unknown>[]).reduce<Record<string, unknown>>((acc, cur) => {
+      const c = cur as Record<string, unknown>;
+      const key = String(c.dataKey ?? c.name ?? "value");
+      acc[key] = c.value as unknown;
       return acc;
-    }, {} as any);
+    }, {});
 
     return (
       <div
@@ -151,7 +165,7 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
   <div className="text-sm text-muted-foreground">Projeção: <span className="font-semibold text-primary">{displayPoint?.doses_projecao !== undefined && displayPoint?.doses_projecao !== null ? numberFmt.format(displayPoint.doses_projecao) : (displayPoint?.doses_previstas !== undefined ? numberFmt.format(displayPoint.doses_previstas) : '—')}</span></div>
         {p.intervalo_inferior !== undefined && p.intervalo_superior !== undefined && (
           <div className="text-sm text-muted-foreground mt-1">
-            Intervalo de Confiança: <span className="font-medium">{numberFmt.format(p.intervalo_inferior)} — {numberFmt.format(p.intervalo_superior)}</span>
+            Intervalo de Confiança: <span className="font-medium">{numberFmt.format(Number(p.intervalo_inferior))} — {numberFmt.format(Number(p.intervalo_superior))}</span>
           </div>
         )}
         {/* note: synthetic point info moved to chart caption/legend */}
@@ -181,16 +195,17 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
   const isComparisonPayload = (() => {
     if (!data) return false;
     // backend may send an object with `dados_comparacao` or the frontend may pass the raw array
-    const asAny: any = data as any;
-    if (asAny && asAny.dados_comparacao) return true;
-    if (Array.isArray(asAny) && asAny.length && (asAny[0].ano !== undefined || asAny[0].quantidade !== undefined)) return true;
+    const asUnknown = data as unknown;
+    if (asUnknown && typeof asUnknown === "object" && "dados_comparacao" in (asUnknown as Record<string, unknown>)) return true;
+    if (Array.isArray(asUnknown) && (asUnknown as unknown[]).length) {
+      const first = (asUnknown as unknown[])[0] as Record<string, unknown> | undefined;
+      if (first && ("ano" in first || "quantidade" in first)) return true;
+    }
     return false;
   })();
 
-  if (isComparisonPayload) {
-    // Reuse the ComparisonChart which already implements the desired two-column layout
-    return <ComparisonChart data={data as any} loading={loading} />;
-  }
+  // We will check `isComparisonPayload` during rendering to decide whether to
+  // show the `ComparisonChart` layout; avoid returning early to preserve hooks.
 
   // If no filters are selected, prompt the user to choose one. This keeps the UX clear
   // (the backend returns an empty list in that case).
@@ -251,39 +266,34 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
           <CardDescription>Projeção de doses distribuídas baseada em dados históricos</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Provide a persistent caption/legend area (includes synthetic note when applicable) */}
+          {/* Caption area (kept minimal) */}
           <div className="mb-3 flex flex-col gap-2">
-            {data && data.length === 1 && String((data as any)[0].data).includes("2025") && (
+            {data && data.length === 1 && String((data as RawPoint[])[0].data).includes("2025") && (
               <div className="text-sm text-muted-foreground">Apenas previsão para 2025 disponível — sem histórico suficiente para desenhar série completa</div>
-            )}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-4 h-0.5 bg-[color:var(--primary)] rounded" />
-                <span className="text-muted-foreground">Distribuição Histórica</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-4 h-0.5 rounded" style={{ background: 'linear-gradient(90deg, transparent 0%, var(--primary) 100%)' }} />
-                <span className="text-muted-foreground">Projeção</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[color:var(--primary)] border border-white" />
-                <span className="text-muted-foreground">Ponto projetado 2025</span>
-              </div>
-            </div>
-            {chartData.some((d) => (d as any).synthetic) && (
-              <div className="text-xs text-muted-foreground">Nota: um ponto sintético é adicionado apenas para desenhar a linha quando não há séries históricas suficientes.</div>
             )}
           </div>
           <ResponsiveContainer width="100%" height={400}>
             {isComparisonPair ? (
-              <BarChart data={barData} margin={{ left: 24, right: 24, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => numberFmt.format(Number(v))} />
-                <Tooltip formatter={(v: any) => numberFmt.format(Number(v))} />
-                <Bar dataKey="hist" name="Histórico" fill="hsl(var(--muted))" barSize={80} radius={[6,6,0,0]} />
-                <Bar dataKey="proj" name="Projeção" fill="hsl(var(--primary))" barSize={80} radius={[6,6,0,0]} />
-              </BarChart>
+              // Render ComparisonChart inside main JSX to preserve consistent hook order
+              (() => {
+                const hist = chartData.find((d) => d.doses_historico !== undefined && d.doses_historico !== null)?.doses_historico ?? null;
+                const proj = chartData.find((d) => d.doses_projecao !== undefined && d.doses_projecao !== null)?.doses_projecao ?? null;
+                const yearA = Number(String((chartData[0] || {}).data).slice(0,4)) || 2024;
+                const yearB = Number(String((chartData[1] || {}).data).slice(0,4)) || yearA + 1 || 2025;
+                const histPoint = chartData.find((d) => d.doses_historico !== undefined && d.doses_historico !== null);
+                const projPoint = chartData.find((d) => d.doses_projecao !== undefined && d.doses_projecao !== null);
+                const labelSuffix = String(histPoint?.data || projPoint?.data || "");
+                // Determine whether we should annualize the projection when comparing.
+                // If the labelSuffix contains a month (e.g. '2024-06') we are comparing
+                // monthly values and should NOT multiply the projection by 12.
+                const shouldAnnualize = !labelSuffix.includes("-");
+                const compPayload = {
+                  projecao_unidade: "mensal",
+                  dados_comparacao: [ { ano: yearA, quantidade: hist, tipo: 'historico' }, { ano: yearB, quantidade: proj, tipo: 'projeção' } ],
+                  annualize_projection: shouldAnnualize,
+                };
+                return <ComparisonChart data={compPayload} loading={loading} embedded />;
+              })()
             ) : (
               <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -348,19 +358,19 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
                 strokeWidth={3}
                 strokeDasharray={"5 5"}
                 name="Projeção"
-                  dot={(dotProps: any) => {
-                  const p = dotProps && dotProps.payload;
-                  const is2025 = p && String(p.data).includes("2025");
-                  const isSynthetic = p && p.synthetic;
-                  const cx = dotProps.cx;
-                  const cy = dotProps.cy;
+                  dot={(dotProps?: { payload?: ChartPoint; cx?: number; cy?: number }) => {
+                  const p = dotProps?.payload;
+                  const is2025 = !!(p && String(p.data).includes("2025"));
+                  const isSynthetic = !!(p && p.synthetic);
+                  const cx = dotProps?.cx ?? 0;
+                  const cy = dotProps?.cy ?? 0;
                   const keyId = p ? `dot-${String(p.data)}` : `dot-${cx}-${cy}`;
-                  if (is2025) {
+                  if (is2025 && p) {
                     return (
                       <g key={`${keyId}-g`}>
                         <circle key={`${keyId}-circle`} cx={cx} cy={cy} r={6} fill="hsl(var(--primary))" stroke="#fff" strokeWidth={2} />
                         <text key={`${keyId}-text`} x={cx} y={cy - 12} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={12} fontWeight={600}>
-                          {numberFmt.format(p.doses_projecao ?? p.doses_previstas)}
+                          {numberFmt.format((p.doses_projecao ?? p.doses_previstas) as number)}
                         </text>
                       </g>
                     );
@@ -374,14 +384,7 @@ const ForecastChart = ({ data, loading, filtersSelected = false }: ForecastChart
               </ComposedChart>
               )}
             </ResponsiveContainer>
-          {showDebug && (
-            <div className="mt-3">
-              <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Debug: chartData (dev only)</summary>
-                <pre className="whitespace-pre-wrap max-h-60 overflow-auto bg-surface p-2 rounded mt-2 text-[10px]">{JSON.stringify(chartData, null, 2)}</pre>
-              </details>
-            </div>
-          )}
+          {/* debug information removed for production clarity */}
           {isComparisonPair && (
             <div className="mt-3">
               <ExplainForecastButton />

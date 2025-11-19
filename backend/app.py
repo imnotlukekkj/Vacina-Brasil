@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 import json
 import os
-import asyncio
+import logging
 try:
     import asyncpg
 except Exception:  # pragma: no cover - optional dependency
@@ -29,6 +29,8 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", _default_origins).split(",")
 app = FastAPI(title="Vacina Normalizer API")
 normalizer = get_default_normalizer()
 
+logger = logging.getLogger(__name__)
+
 # include previsao router (exposes /previsao)
 # NOTE: removed prefix="/api" because the hosting platform (Render/Vercel)
 # may already proxy requests under an /api path. Keeping the prefix caused
@@ -37,19 +39,13 @@ normalizer = get_default_normalizer()
 app.include_router(previsao_router)
 
 # Async DB pool (optional)
-from typing import Any
 db_pool: Optional[Any] = None
 
 # Seu dominio publico do Vercel (deve ser definido como variavel de ambiente no Render)
 FRONTEND_ORIGIN = os.getenv("FRONTEND_URL", "https://vacina-data-visor.vercel.app") 
 
-# Lista de origens permitidas
-origins = [
-    # Domínios de desenvolvimento (URLs literais apenas)
-    "http://localhost:8080",
-    "http://127.0.0.1:8000",
-    "http://localhost:3000",
-]
+# Lista de origens permitidas — usar CORS_ORIGINS (pode ser configurada via env)
+origins = [o.strip() for o in CORS_ORIGINS if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +53,8 @@ app.add_middleware(
     # Regex para aceitar qualquer subdomínio do vercel.app (deploys temporários)
     allow_origin_regex=r"https://.*\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["GET"],
+    # permitir todos os métodos para evitar problemas de preflight durante desenvolvimento
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -72,22 +69,22 @@ async def startup_event():
 
     if os.getenv("DATABASE_URL"):
         if asyncpg is None:
-            print("DATABASE_URL is set but asyncpg is not installed; skipping DB pool creation")
+            logger.warning("DATABASE_URL is set but asyncpg is not installed; skipping DB pool creation")
         else:
             try:
                 db_pool = await asyncpg.create_pool(os.getenv("DATABASE_URL"), min_size=1, max_size=5)
-                print("Connected to database")
+                logger.info("Connected to database")
             except Exception as e:
-                print("Failed to connect to database:", e)
+                logger.exception("Failed to connect to database: %s", e)
     else:
         # not connected via DATABASE_URL; log Supabase REST availability
         supabase_url = os.getenv("SUPABASE_URL")
         supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if supabase_url and supabase_key:
             # print a short confirmation (don't reveal the key)
-            print(f"Supabase REST configured (host={supabase_url.split('://')[-1]})")
+            logger.info("Supabase REST configured (host=%s)", supabase_url.split('://')[-1])
         else:
-            print("No DATABASE_URL or SUPABASE_* configured: using local JSON fallback")
+            logger.info("No DATABASE_URL or SUPABASE_* configured: using local JSON fallback")
 
 
 @app.on_event("shutdown")
@@ -191,7 +188,7 @@ async def _fetch_rows_from_supabase(table: str, filters: Dict[str, Optional[str]
         resp = await client.get(url, params=params, headers=headers)
         if resp.status_code != 200:
             # log minimalmente e retornar vazio
-            print(f"Supabase request failed: {resp.status_code} {resp.text}")
+            logger.warning("Supabase request failed: %s %s", resp.status_code, resp.text)
             return []
         data = resp.json()
 

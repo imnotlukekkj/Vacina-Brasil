@@ -19,7 +19,7 @@ class ErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: any) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     // log to console for now; could integrate Sentry/Telemetry
     console.error("ErrorBoundary caught an error:", error, info);
   }

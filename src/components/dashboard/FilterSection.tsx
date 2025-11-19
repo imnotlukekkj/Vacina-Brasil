@@ -47,7 +47,7 @@ const FilterSection = () => {
     if (mesParam) setMes(mesParam);
     if (ufParam) setUF(ufParam);
     if (vacinaParam) setVacina(vacinaParam);
-  }, []);
+  }, [searchParams, setAno, setMes, setUF, setVacina]);
 
   // buscar lista de vacinas do backend
   useEffect(() => {
@@ -58,7 +58,9 @@ const FilterSection = () => {
       .then((list) => {
         if (!mounted) return;
         // garantindo shape consistente (alguns ambientes podem retornar apenas nomes)
-        const normalized = list.map((it: any) => (typeof it === "string" ? { vacina: it, total_doses: 0 } : it));
+        const normalized = list.map((it: unknown) =>
+          typeof it === "string" ? { vacina: it, total_doses: 0 } : (it as { vacina: string; total_doses: number })
+        );
         setVacinasList(normalized);
       })
       .catch((err) => {
