@@ -165,7 +165,7 @@ const About = () => {
             <CardContent className="space-y-2">
               <a href="https://opendatasus.saude.gov.br/" target="_blank" rel="noopener noreferrer" className="block text-primary hover:text-primary/80 transition-colors">→ OpenDataSUS - Portal de Dados Abertos da Saúde</a>
               <a href="https://www.gov.br/saude/pt-br" target="_blank" rel="noopener noreferrer" className="block text-primary hover:text-primary/80 transition-colors">→ Ministério da Saúde</a>
-              <a href="https://github.com/imnotlukekkj/vacina-data-visor" target="_blank" rel="noopener noreferrer" className="block text-primary hover:text-primary/80 transition-colors">→ Repositório do Projeto (GitHub)</a>
+              <a href="https://github.com/imnotlukekkj/Vacina-Brasil" target="_blank" rel="noopener noreferrer" className="block text-primary hover:text-primary/80 transition-colors">→ Repositório do Projeto (GitHub)</a>
             </CardContent>
           </Card>
         </motion.div>
