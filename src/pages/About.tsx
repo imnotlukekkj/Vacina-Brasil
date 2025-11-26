@@ -21,7 +21,7 @@ const About = () => {
       </header>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-4xl">
         <Link to="/">
           <Button variant="ghost" className="mb-8">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -100,24 +100,20 @@ const About = () => {
             </CardContent>
           </Card>
 
-          {/* Autores */}
+          {/* Infraestrutura e Serviços */}
           <Card>
-            <CardHeader className="flex flex-col items-start">
+            <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Users className="h-5 w-5 text-primary" />
+                <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center">
+                  <Activity className="h-5 w-5 text-secondary" />
                 </div>
-                <CardTitle>Idealizadores do Projeto</CardTitle>
+                <CardTitle>Infraestrutura e Serviços</CardTitle>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-1 text-muted-foreground">
-                <div className="font-semibold text-foreground">Luis Felipe Leandro Gomes</div>
-                <div className="font-semibold text-foreground">Yasmin Douahy Rebelo</div>
-                <div className="font-semibold text-foreground">Jamilly Douahy Rebelo</div>
-                <div className="font-semibold text-foreground">João Felipe Da Graça Almeida</div>
-                <div className="font-semibold text-foreground">Marcos Vinícius Mendes Arruda</div>
-              </div>
+            <CardContent className="space-y-2">
+              <p className="text-muted-foreground"><span className="font-semibold text-foreground">Hospedagem Frontend:</span> Vercel (React/Vite)</p>
+              <p className="text-muted-foreground"><span className="font-semibold text-foreground">Hospedagem Backend:</span> Render (FastAPI)</p>
+              <p className="text-muted-foreground"><span className="font-semibold text-foreground">Banco de Dados:</span> Supabase (PostgreSQL)</p>
             </CardContent>
           </Card>
 
@@ -139,6 +135,28 @@ const About = () => {
               <div>
                 <p className="font-semibold text-foreground">Yasmin Douahy Rebelo</p>
                 <p className="text-muted-foreground text-sm">Banco de dados e hospedagem do banco na nuvem.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Autores */}
+          <Card>
+            <CardHeader className="flex flex-col items-start">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle>Idealizadores do Projeto</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1 text-muted-foreground">
+                <div className="font-semibold text-foreground">Luis Felipe Leandro Gomes</div>
+                <div className="font-semibold text-foreground">Yasmin Douahy Rebelo</div>
+                <div className="font-semibold text-foreground">Jamilly Douahy Rebelo</div>
+                <div className="font-semibold text-foreground">João Felipe Da Graça Almeida</div>
+                <div className="font-semibold text-foreground">Marcos Vinícius Mendes Arruda</div>
+                <div className="font-semibold text-foreground">Matheus Valadares Do Mar Martins</div>
               </div>
             </CardContent>
           </Card>

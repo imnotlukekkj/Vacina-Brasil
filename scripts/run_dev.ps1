@@ -71,7 +71,8 @@ if (Test-Path (Join-Path $PSScriptRoot '.venv\Scripts\python.exe')) {
 }
 
 # abre nova janela PowerShell com -NoExit para manter visível
-$uvicornProc = Start-Process powershell -ArgumentList ('-NoExit','-Command',$uvicornCmd) -PassThru
+# define o WorkingDirectory para $PSScriptRoot para que paths relativos (ex: backend) sejam resolvidos
+$uvicornProc = Start-Process powershell -ArgumentList ('-NoExit','-Command',$uvicornCmd) -WorkingDirectory $PSScriptRoot -PassThru
 Write-Host "[run_dev.ps1] backend ProcessId=$($uvicornProc.Id)"
 
 Write-Host '[run_dev.ps1] escrevendo .env.local para o frontend...'
